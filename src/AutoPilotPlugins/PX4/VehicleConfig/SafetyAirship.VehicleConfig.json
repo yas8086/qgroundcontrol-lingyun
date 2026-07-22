@@ -1,0 +1,224 @@
+{
+    "fileType": "VehicleConfig",
+    "version": 1,
+    "constants": {
+        "_rtlLandDelayParamValueLandImmediately": 0,
+        "_rtlLandDelayParamValueLoiterIndefinitely": -1,
+        "_rtlLandDelayParamValueLoiterDefault": 60
+    },
+    "params": {
+        "_fenceRadius": {
+            "name": "GF_MAX_HOR_DIST",
+            "required": true
+        },
+        "_fenceAlt": {
+            "name": "GF_MAX_VER_DIST",
+            "required": true
+        },
+        "_disarmLandDelay": {
+            "name": "COM_DISARM_LAND",
+            "required": true
+        },
+        "_rtlLandDelay": {
+            "name": "RTL_LAND_DELAY",
+            "required": true
+        }
+    },
+    "sections": [
+        {
+            "title": "Low Battery Failsafe",
+            "keywords": [
+                "battery",
+                "voltage",
+                "low battery",
+                "critical battery",
+                "emergency",
+                "power"
+            ],
+            "image": "/qmlimages/LowBattery.svg",
+            "controls": [
+                {
+                    "param": "COM_LOW_BAT_ACT",
+                    "label": "Failsafe action",
+                    "control": "combobox"
+                },
+                {
+                    "param": "BAT_LOW_THR",
+                    "label": "Battery warn level"
+                },
+                {
+                    "param": "BAT_CRIT_THR",
+                    "label": "Battery failsafe level"
+                },
+                {
+                    "param": "BAT_EMERGEN_THR",
+                    "label": "Battery emergency level"
+                }
+            ]
+        },
+        {
+            "title": "RC/Joystick Loss Failsafe",
+            "keywords": [
+                "radio",
+                "receiver",
+                "transmitter",
+                "rc loss",
+                "joystick",
+                "signal loss"
+            ],
+            "image": "/qmlimages/RCLoss.svg",
+            "controls": [
+                {
+                    "param": "NAV_RCL_ACT",
+                    "label": "Failsafe action",
+                    "control": "combobox"
+                },
+                {
+                    "param": "COM_RC_LOSS_T",
+                    "label": "RC/joystick loss timeout"
+                }
+            ]
+        },
+        {
+            "title": "Data Link Loss Failsafe",
+            "keywords": [
+                "telemetry",
+                "link loss",
+                "ground station",
+                "gcs",
+                "disconnect"
+            ],
+            "image": "/qmlimages/DatalinkLoss.svg",
+            "controls": [
+                {
+                    "param": "NAV_DLL_ACT",
+                    "label": "Failsafe action",
+                    "control": "combobox"
+                },
+                {
+                    "param": "COM_DL_LOSS_T",
+                    "label": "Data link loss timeout"
+                }
+            ]
+        },
+        {
+            "title": "Geofence Failsafe",
+            "keywords": [
+                "geofence",
+                "boundary",
+                "fence",
+                "containment",
+                "radius",
+                "altitude",
+                "breach"
+            ],
+            "image": "/qmlimages/GeoFence.svg",
+            "controls": [
+                {
+                    "param": "GF_ACTION",
+                    "label": "Action on breach",
+                    "control": "combobox"
+                },
+                {
+                    "param": "GF_MAX_HOR_DIST",
+                    "label": "Max radius",
+                    "control": "slider",
+                    "enableCheckbox": {
+                        "checked": "_fenceRadius.value > 0",
+                        "onClicked": "{ _fenceRadius.value = enableCheckBoxChecked ? 100 : 0 }"
+                    }
+                },
+                {
+                    "param": "GF_MAX_VER_DIST",
+                    "label": "Max altitude",
+                    "control": "slider",
+                    "enableCheckbox": {
+                        "checked": "_fenceAlt.value > 0",
+                        "onClicked": "{ _fenceAlt.value = enableCheckBoxChecked ? 100 : 0 }"
+                    }
+                }
+            ]
+        },
+        {
+            "title": "Airship Flight Limits",
+            "keywords": [
+                "airship",
+                "altitude",
+                "speed",
+                "climb",
+                "velocity",
+                "limit"
+            ],
+            "image": "/qmlimages/GeoFence.svg",
+            "controls": [
+                {
+                    "param": "AS_ALT_VMAX",
+                    "label": "Max climb/descent rate"
+                },
+                {
+                    "param": "AS_VEL_XY_MAX",
+                    "label": "Max horizontal speed"
+                },
+                {
+                    "param": "AS_TAKEOFF_ALT",
+                    "label": "Takeoff altitude"
+                }
+            ]
+        },
+        {
+            "title": "Airship Buoyancy Safety",
+            "keywords": [
+                "airship",
+                "buoyancy",
+                "ballast",
+                "blower",
+                "valve",
+                "trim"
+            ],
+            "image": "/qmlimages/GeoFence.svg",
+            "controls": [
+                {
+                    "param": "BALLOON_AST_EN",
+                    "label": "Buoyancy assist enabled",
+                    "control": "combobox"
+                },
+                {
+                    "param": "BALLOON_RATE_MAX",
+                    "label": "Max buoyancy adjust rate"
+                },
+                {
+                    "param": "BALLOON_DEADZONE",
+                    "label": "Altitude deadzone"
+                },
+                {
+                    "param": "TRIM_BALLOON_EN",
+                    "label": "Left-right trim enabled",
+                    "control": "combobox"
+                }
+            ]
+        },
+        {
+            "title": "Land Mode Settings",
+            "keywords": [
+                "landing",
+                "descent",
+                "disarm",
+                "touchdown"
+            ],
+            "image": "/qmlimages/LandModeCopter.svg",
+            "controls": [
+                {
+                    "param": "COM_DISARM_LAND",
+                    "label": "Disarm after",
+                    "control": "slider",
+                    "sliderMin": 0,
+                    "sliderMax": 10,
+                    "enableCheckbox": {
+                        "checked": "_disarmLandDelay.value > 0",
+                        "onClicked": "{ _disarmLandDelay.value = enableCheckBoxChecked ? 2 : 0 }"
+                    }
+                }
+            ]
+        }
+    ]
+}

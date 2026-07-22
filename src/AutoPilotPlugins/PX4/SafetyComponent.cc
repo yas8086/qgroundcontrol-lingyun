@@ -1,4 +1,5 @@
 #include "SafetyComponent.h"
+#include "Vehicle.h"
 
 SafetyComponent::SafetyComponent(Vehicle* vehicle, AutoPilotPlugin* autopilot, QObject* parent) :
     VehicleComponent(vehicle, autopilot, AutoPilotPlugin::KnownSafetyVehicleComponent, parent),
@@ -50,5 +51,9 @@ QUrl SafetyComponent::summaryQmlSource(void) const
 
 QString SafetyComponent::vehicleConfigJson(void) const
 {
+    // 飞艇使用专用的安全配置，包含浮力控制相关安全参数
+    if (_vehicle && _vehicle->vehicleType() == MAV_TYPE_AIRSHIP) {
+        return QStringLiteral(":/qml/QGroundControl/AutoPilotPlugins/PX4/VehicleConfig/SafetyAirship.VehicleConfig.json");
+    }
     return QStringLiteral(":/qml/QGroundControl/AutoPilotPlugins/PX4/VehicleConfig/Safety.VehicleConfig.json");
 }

@@ -114,6 +114,12 @@ MockLink::MockLink(SharedLinkConfigurationPtr &config, QObject *parent)
     (void) QObject::connect(this, &MockLink::writeBytesQueuedSignal, this, &MockLink::_writeBytesQueued, Qt::QueuedConnection);
 
     _loadParams();
+
+    // 飞艇使用简化的 custom_mode（0-7），将初始模式设置为 Manual(0)
+    if (_vehicleType == MAV_TYPE_AIRSHIP) {
+        _mavCustomMode = 0;
+    }
+
     _runningTime.start();
 
     _workerThread = new QThread(this);
@@ -368,7 +374,11 @@ void MockLink::_loadParams()
             paramFile.setFileName(":/FirmwarePlugin/APM/Copter.OfflineEditing.params");
         }
     } else {
-        paramFile.setFileName(":/MockLink/PX4MockLink.params");
+        if (_vehicleType == MAV_TYPE_AIRSHIP) {
+            paramFile.setFileName(":/MockLink/PX4MockLinkAirship.params");
+        } else {
+            paramFile.setFileName(":/MockLink/PX4MockLink.params");
+        }
     }
 
     const bool success = paramFile.open(QFile::ReadOnly);
@@ -2061,6 +2071,11 @@ MockLink *MockLink::_startMockLinkWorker(const QString &configName, MAV_AUTOPILO
 MockLink *MockLink::startPX4MockLink(bool sendStatusText, bool enableCamera, bool enableGimbal, MockConfiguration::FailureMode_t failureMode)
 {
     return _startMockLinkWorker(QStringLiteral("PX4 MultiRotor MockLink"), MAV_AUTOPILOT_PX4, MAV_TYPE_QUADROTOR, sendStatusText, enableCamera, enableGimbal, failureMode);
+}
+
+MockLink *MockLink::startAirshipMockLink(bool sendStatusText, bool enableCamera, bool enableGimbal, MockConfiguration::FailureMode_t failureMode)
+{
+    return _startMockLinkWorker(QStringLiteral("PX4 Airship MockLink"), MAV_AUTOPILOT_PX4, MAV_TYPE_AIRSHIP, sendStatusText, enableCamera, enableGimbal, failureMode);
 }
 
 MockLink *MockLink::startGenericMockLink(bool sendStatusText, bool enableCamera, bool enableGimbal, MockConfiguration::FailureMode_t failureMode)

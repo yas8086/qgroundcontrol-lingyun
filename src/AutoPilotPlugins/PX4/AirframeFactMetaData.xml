@@ -11,6 +11,22 @@
       <output name="Motor3">tail thruster</output>
       <output name="Servo1">thrust tilt</output>
     </airframe>
+    <airframe name="Lingyun01" id="4022" maintainer="Lingyun Realm Aviation &lt;dev@lingyun-aero.com&gt;">
+      <class>Airship</class>
+      <type>Airship</type>
+      <output name="Motor1">lift motor 0 (ccw)</output>
+      <output name="Motor2">lift motor 1 (cw)</output>
+      <output name="Motor3">lift motor 2 (cw)</output>
+      <output name="Motor4">lift motor 3 (ccw)</output>
+      <output name="Motor5">thrust motor 4 (ccw)</output>
+      <output name="Motor6">thrust motor 5 (cw)</output>
+      <output name="Motor7">thrust motor 6 (ccw)</output>
+      <output name="Motor8">thrust motor 7 (cw)</output>
+      <output name="Motor9">blower left</output>
+      <output name="Motor10">blower right</output>
+      <output name="Motor11">valve left</output>
+      <output name="Motor12">valve right</output>
+    </airframe>
   </airframe_group>
   <airframe_group name="Autogyro" image="Autogyro">
     <airframe name="ThunderFly Auto-G2" id="17002" maintainer="ThunderFly s.r.o., Roman Dvorak &lt;dvorakroman@thunderfly.cz&gt;">

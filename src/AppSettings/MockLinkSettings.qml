@@ -13,11 +13,17 @@ ColumnLayout {
     readonly property int _MAV_AUTOPILOT_ARDUPILOTMEGA: 3
     readonly property int _MAV_TYPE_FIXED_WING:         1
     readonly property int _MAV_TYPE_QUADROTOR:          2
+    readonly property int _MAV_TYPE_AIRSHIP:            7
 
     function saveSettings() {
         switch (firmwareTypeCombo.currentIndex) {
         case 0:
             subEditConfig.firmware = _MAV_AUTOPILOT_PX4
+            if (vehicleTypeCombo.currentIndex === 1) {          // Airship
+                subEditConfig.vehicle = _MAV_TYPE_AIRSHIP
+            } else {
+                subEditConfig.vehicle = _MAV_TYPE_QUADROTOR
+            }
             break
         case 1:
             subEditConfig.firmware = _MAV_AUTOPILOT_ARDUPILOTMEGA
@@ -65,7 +71,7 @@ ColumnLayout {
             firmwareTypeCombo.currentIndex = 2
             break
         }
-        if (subEditConfig.vehicle === _MAV_TYPE_FIXED_WING) {          // Hardcoded _MAV_TYPE_FIXED_WING
+        if (subEditConfig.vehicle === _MAV_TYPE_FIXED_WING || subEditConfig.vehicle === _MAV_TYPE_AIRSHIP) {
             vehicleTypeCombo.currentIndex = 1
         } else {
             vehicleTypeCombo.currentIndex = 0
@@ -107,14 +113,19 @@ ColumnLayout {
         model: [ qsTr("PX4 Pro"), qsTr("ArduPilot"), qsTr("Generic MAVLink") ]
 
         property bool apmFirmwareSelected: currentIndex === 1
+        property bool px4FirmwareSelected: currentIndex === 0
     }
 
     LabelledComboBox {
         id:                     vehicleTypeCombo
         Layout.fillWidth:  true
         label:                  qsTr("Vehicle Type")
-        model:                  [ qsTr("ArduCopter"), qsTr("ArduPlane") ]
-        visible:                firmwareTypeCombo.apmFirmwareSelected
+        model:                  firmwareTypeCombo.px4FirmwareSelected
+                                ? [ qsTr("MultiRotor"), qsTr("Airship") ]
+                                : (firmwareTypeCombo.apmFirmwareSelected
+                                    ? [ qsTr("ArduCopter"), qsTr("ArduPlane") ]
+                                    : [])
+        visible:                firmwareTypeCombo.px4FirmwareSelected || firmwareTypeCombo.apmFirmwareSelected
     }
 
     SettingsGroupLayout {

@@ -29,6 +29,7 @@ qt_add_resources(${CMAKE_PROJECT_NAME} mocklink_resources
     PREFIX "/MockLink"
     FILES
         PX4MockLink.params
+        PX4MockLinkAirship.params
         MockLink.General.MetaData.json
         MockLink.General.MetaData.json.xz
         MockLink.Parameter.MetaData.json.xz
