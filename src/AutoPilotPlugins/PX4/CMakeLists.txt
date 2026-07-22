@@ -132,6 +132,11 @@ qt_add_qml_module(AutoPilotPluginsPX4Module
         PX4TuningComponentSpacecraftRate.qml
         PX4TuningComponentSpacecraftVelocity.qml
         PX4TuningComponentVTOL.qml
+        PX4TuningComponentAirship.qml
+        PX4TuningComponentAirshipAll.qml
+        PX4TuningComponentAirshipAttitude.qml
+        PX4TuningComponentAirshipPosition.qml
+        PX4TuningComponentAirshipBallast.qml
         SafetyComponentSummary.qml
         SensorsComponent.qml
         SensorsComponentSummary.qml
@@ -140,6 +145,7 @@ qt_add_qml_module(AutoPilotPluginsPX4Module
     RESOURCES
         VehicleConfig/Power.VehicleConfig.json
         VehicleConfig/Safety.VehicleConfig.json
+        VehicleConfig/SafetyAirship.VehicleConfig.json
     NO_PLUGIN
 )
 
