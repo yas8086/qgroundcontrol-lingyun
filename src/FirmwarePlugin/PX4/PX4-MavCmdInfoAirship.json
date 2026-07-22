@@ -1,0 +1,23 @@
+{
+    "comment":      "PX4 Pro, Airship (Lingyun01)",
+    "version":      1,
+    "fileType":     "MavCmdInfo",
+
+    "mavCmdInfo": [
+        {
+            "id":           22,
+            "comment":      "MAV_CMD_NAV_TAKEOFF - Airship vertical climb, only altitude is settable",
+            "paramRemove":  "1,2,3,4,5,6"
+        },
+        {
+            "id":           16,
+            "comment":      "MAV_CMD_NAV_WAYPOINT - Airship waypoint, large inertia requires planning",
+            "paramRemove":  "2,3"
+        },
+        {
+            "id":           21,
+            "comment":      "MAV_CMD_NAV_LAND - Airship land, consider drift",
+            "paramRemove":  "1"
+        }
+    ]
+}

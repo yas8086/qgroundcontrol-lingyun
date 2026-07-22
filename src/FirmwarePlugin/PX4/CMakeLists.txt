@@ -12,6 +12,8 @@ if(NOT QGC_DISABLE_PX4_PLUGIN)
             px4_custom_mode.h
             PX4FirmwarePlugin.cc
             PX4FirmwarePlugin.h
+            AirshipFirmwarePlugin.cc
+            AirshipFirmwarePlugin.h
             PX4ParameterMetaData.cc
             PX4ParameterMetaData.h
     )
@@ -43,6 +45,7 @@ qt_add_qml_module(PX4FirmwareModule
         PX4BatteryIndicator.qml
         PX4FlightModeIndicator.qml
         PX4MainStatusIndicator.qml
+        PX4AirshipFlightModeIndicator.qml
     NO_PLUGIN
 )
 

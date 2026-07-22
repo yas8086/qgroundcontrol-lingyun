@@ -4,6 +4,7 @@
 #include "QGCMAVLink.h"
 
 class PX4FirmwarePlugin;
+class AirshipFirmwarePlugin;
 
 class PX4FirmwarePluginFactory : public FirmwarePluginFactory
 {
@@ -16,5 +17,6 @@ public:
     FirmwarePlugin*                     firmwarePluginForAutopilot  (MAV_AUTOPILOT autopilotType, MAV_TYPE vehicleType) final;
 
 private:
-    PX4FirmwarePlugin*  _pluginInstance;
+    PX4FirmwarePlugin*      _pluginInstance;
+    AirshipFirmwarePlugin*  _airshipPluginInstance;
 };

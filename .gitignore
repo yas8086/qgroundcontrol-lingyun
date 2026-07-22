@@ -12,6 +12,9 @@
 .vs/
 .settings/
 
+# Trae CN IDE
+.trae/
+
 # VS Code - track .default files, ignore personal overrides
 .vscode/*
 !.vscode/extensions.json
