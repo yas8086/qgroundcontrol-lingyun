@@ -75,6 +75,8 @@ ColumnLayout {
             modelContainer.source = "qrc:/qml/QGroundControl/FlyView/SubChecklist.qml"
         } else if(vehicle.fixedWing) {
             modelContainer.source = "qrc:/qml/QGroundControl/FlyView/FixedWingChecklist.qml"
+        } else if(vehicle.airship) {
+            modelContainer.source = "qrc:/qml/QGroundControl/FlyView/AirshipChecklist.qml"
         } else {
             modelContainer.source = "qrc:/qml/QGroundControl/FlyView/DefaultChecklist.qml"
         }

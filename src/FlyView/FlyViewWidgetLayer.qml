@@ -175,6 +175,13 @@ Item {
         property real topEdgeCenterInset: visible ? y + height : 0
     }
 
+    // 飞艇浮力控制 HUD 面板（仅在飞艇类型时显示）
+    AirshipBallastHUD {
+        anchors.bottom:        parent.bottom
+        anchors.left:          parent.left
+        anchors.margins:       _toolsMargin
+    }
+
     Loader {
         id: preFlightChecklistLoader
         sourceComponent: preFlightChecklistPopup

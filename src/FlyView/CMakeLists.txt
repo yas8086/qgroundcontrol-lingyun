@@ -38,6 +38,8 @@ qt_add_qml_module(FlyViewModule
         FlyViewTopRightColumnLayout.qml
         FlyViewTopRightPanel.qml
         FlyViewVideo.qml
+        AirshipBallastHUD.qml
+        AirshipChecklist.qml
         FlyViewWidgetLayer.qml
         GuidedActionConfirm.qml
         GuidedActionLand.qml
