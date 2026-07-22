@@ -326,6 +326,7 @@ void Vehicle::_commonInit(LinkInterface* link)
     _rpmFactGroup                   = new VehicleRPMFactGroup(this);
     _terrainFactGroup               = new TerrainFactGroup(this);
     _radioStatusFactGroup           = new RadioStatusFactGroup(this);
+    _ballastFactGroup               = new AirshipBallastFactGroup(this);
     _batteryFactGroupListModel      = new BatteryFactGroupListModel(this);
     _escStatusFactGroupListModel    = new EscStatusFactGroupListModel(this);
 
@@ -360,6 +361,7 @@ void Vehicle::_commonInit(LinkInterface* link)
     _addFactGroup(_rpmFactGroup,               _rpmFactGroupName);
     _addFactGroup(_terrainFactGroup,           _terrainFactGroupName);
     _addFactGroup(_radioStatusFactGroup,       _radioStatusFactGroupName);
+    _addFactGroup(_ballastFactGroup,           _ballastFactGroupName);
 
     // Add firmware-specific fact groups, if provided
     QMap<QString, FactGroup*>* fwFactGroups = _firmwarePlugin->factGroups();

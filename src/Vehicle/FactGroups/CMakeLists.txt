@@ -11,6 +11,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         EscStatusFactGroupListModel.h
         RadioStatusFactGroup.cc
         RadioStatusFactGroup.h
+        AirshipBallastFactGroup.cc
+        AirshipBallastFactGroup.h
         TerrainFactGroup.cc
         TerrainFactGroup.h
         VehicleClockFactGroup.cc

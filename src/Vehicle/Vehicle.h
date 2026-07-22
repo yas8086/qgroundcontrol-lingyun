@@ -18,6 +18,7 @@
 #include <atomic>
 
 #include "QGCMAVLink.h"
+#include "AirshipBallastFactGroup.h"
 #include "VehicleFactGroup.h"
 #include "VehicleSigningController.h"  // Q_PROPERTY needs the full QObject type for moc/QML metatype registration
 #include "VehicleTypes.h"
@@ -249,7 +250,8 @@ public:
     Q_PROPERTY(FactGroup*           hygrometer      READ hygrometerFactGroup        CONSTANT)
     Q_PROPERTY(FactGroup*           generator       READ generatorFactGroup         CONSTANT)
     Q_PROPERTY(FactGroup*           efi             READ efiFactGroup               CONSTANT)
-    Q_PROPERTY(FactGroup*           radioStatus     READ radioStatusFactGroup       CONSTANT)
+    Q_PROPERTY(FactGroup*           radioStatus     READ radioStatusFactGroup         CONSTANT)
+Q_PROPERTY(FactGroup*           ballast         READ ballastFactGroup            CONSTANT)
     Q_PROPERTY(Actuators*           actuators       READ actuators                  CONSTANT)
 
     // Dynamic FactGroupListModel properties
@@ -562,6 +564,7 @@ public:
     FactGroup* generatorFactGroup           ();
     FactGroup* efiFactGroup                 ();
     FactGroup* radioStatusFactGroup         ();
+    FactGroup* ballastFactGroup              () { return _ballastFactGroup; }
     FactGroup* rpmFactGroup                 ();
 
     QmlObjectListModel* batteries           ();
@@ -1079,7 +1082,8 @@ public:
     const QString _generatorFactGroupName =          QStringLiteral("generator");
     const QString _efiFactGroupName =                QStringLiteral("efi");
     const QString _rpmFactGroupName =                QStringLiteral("rpm");
-    const QString _radioStatusFactGroupName =        QStringLiteral("radioStatus");
+    const QString _radioStatusFactGroupName =       QStringLiteral("radioStatus");
+    const QString _ballastFactGroupName =           QStringLiteral("ballast");
 
     VehicleFactGroup*               _vehicleFactGroup;
     VehicleGPSFactGroup*                _gpsFactGroup               = nullptr;
@@ -1100,6 +1104,7 @@ public:
     VehicleRPMFactGroup*                _rpmFactGroup               = nullptr;
     TerrainFactGroup*                   _terrainFactGroup           = nullptr;
     RadioStatusFactGroup*               _radioStatusFactGroup       = nullptr;
+    AirshipBallastFactGroup*            _ballastFactGroup           = nullptr;
 
     // Live SERVO_OUTPUT_RAW values (microseconds). Indexed 0..15 -> SERVO1..SERVO16.
     QVector<int>                       _servoOutputRawValues = QVector<int>(16, -1);
