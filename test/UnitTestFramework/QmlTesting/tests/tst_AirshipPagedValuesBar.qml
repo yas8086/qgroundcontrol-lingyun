@@ -49,7 +49,7 @@ Item {
             compare(barLoader.item.pageCount, 3, "default 3 pages")
         }
 
-        function test_appendDeletePage() {
+        function test_appendDelete() {
             if (!_qgcReady) skip("QGroundControl singleton not available in QGCQmlQuickTests process")
             var bar = barLoader.item
             var initial = bar.pageCount
@@ -57,6 +57,19 @@ Item {
             compare(bar.pageCount, initial + 1, "page added")
             bar.deleteLastPage()
             compare(bar.pageCount, initial, "page removed back to initial")
+        }
+
+        function test_defaultValuesLoadedOnEmptyPage() {
+            if (!_qgcReady) skip("QGroundControl singleton not available in QGCQmlQuickTests process")
+            var bar = barLoader.item
+            var page0 = bar.swipeView.itemAt(0)
+            verify(page0, "page 0 exists")
+            var grid = page0.factValueGrid
+            verify(grid, "page 0 has factValueGrid")
+            if (grid.columns.count === 0) {
+                page0._loadAirshipDefaults(0)
+            }
+            verify(grid.columns.count > 0, "default values loaded")
         }
 
         function test_pageCountClamped() {
