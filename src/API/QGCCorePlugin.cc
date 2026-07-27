@@ -370,7 +370,8 @@ void QGCCorePlugin::_createAirshipPagedDefaultSettings(FactValueGrid *factValueG
     factValueGrid->setFontSize(FactValueGrid::MediumFontSize);
     (void) factValueGrid->appendColumn();
     (void) factValueGrid->appendColumn();
-    for (int r = 0; r < rowCount; r++) {
+    // appendColumn 已给每列 1 IVD（_rowCount=1），需再 appendRow rowCount-1 次达到目标行数
+    for (int r = 0; r < rowCount - 1; r++) {
         factValueGrid->appendRow();
     }
 

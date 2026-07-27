@@ -70,6 +70,7 @@ Item {
             // defaults (AltitudeRelative/ClimbRate/...) at componentComplete for
             // settingsGroup "AirshipInstr.Page0". QML no longer injects defaults.
             compare(grid.columns.count, 2, "page 0 has 2 columns (airship defaults)")
+            compare(grid.rowCount, 3, "page 0 has 3 rows (airship defaults)")
             var firstFact = grid.columns.get(0).get(0)
             compare(firstFact.factName, "AltitudeRelative", "page 0 col0 row0 is AltitudeRelative")
         }
