@@ -18,27 +18,6 @@ Item {
     property bool settingsUnlocked: false
     property real _margins: ScreenTools.defaultFontPixelWidth / 2
 
-    // 飞艇默认指标：每页 cols 数组，每列含 "factGroup.factName" 列表
-    // factGroup: "Vehicle" 标准 / "ballast" 飞艇 AirshipBallastFactGroup（注册名 "ballast"）
-    // fact 名按 VehicleFactGroup.h/AirshipBallastFactGroup.h 实际名（altitudeRelative/throttlePct）
-    property var _pageDefaults: [
-        // 第 1 页：飞行核心
-        { cols: [
-            ["Vehicle.altitudeRelative", "Vehicle.climbRate", "Vehicle.heading"],
-            ["Vehicle.groundSpeed", "Vehicle.flightTime", "Vehicle.distanceToHome"]
-        ]},
-        // 第 2 页：浮力/姿态
-        { cols: [
-            ["ballast.netBuoyancy", "ballast.altitudeError", "Vehicle.roll"],
-            ["Vehicle.pitch", "ballast.blowerLeft", "ballast.blowerRight"]
-        ]},
-        // 第 3 页：能源/任务（altitudeAMSL 替代 battery：QGC 网格 setFact 不支持 battery list model）
-        { cols: [
-            ["Vehicle.altitudeAMSL", "Vehicle.flightDistance"],
-            ["Vehicle.throttlePct", "Vehicle.airSpeed"]
-        ]}
-    ]
-
     onPageCountChanged: {
         if (pageCount < minPages) _flyViewSettings.airshipInstrumentPageCount.rawValue = minPages
         else if (pageCount > maxPages) _flyViewSettings.airshipInstrumentPageCount.rawValue = maxPages
@@ -123,26 +102,6 @@ Item {
                         property: "settingsUnlocked"
                         value: pageBar._pageUnlocked
                         restoreMode: Binding.RestoreBindingOrValue
-                    }
-
-                    Component.onCompleted: {
-                        if (factValueGrid.columns.count === 0) {
-                            _loadAirshipDefaults(index)
-                        }
-                    }
-
-                    function _loadAirshipDefaults(pageIndex) {
-                        var grid = factValueGrid
-                        var defaults = root._pageDefaults[Math.min(pageIndex, root._pageDefaults.length - 1)]
-                        for (var c = 0; c < defaults.cols.length; c++) {
-                            var col = (c < grid.columns.count) ? grid.columns.get(c) : grid.appendColumn()
-                            var factList = defaults.cols[c]
-                            for (var r = 0; r < factList.length; r++) {
-                                if (r >= grid.rowCount) grid.appendRow()
-                                var parts = factList[r].split(".")
-                                col.get(r).setFact(parts[0], parts[1])
-                            }
-                        }
                     }
                 }
             }

@@ -66,10 +66,12 @@ Item {
             verify(page0, "page 0 exists")
             var grid = page0.factValueGrid
             verify(grid, "page 0 has factValueGrid")
-            if (grid.columns.count === 0) {
-                page0._loadAirshipDefaults(0)
-            }
-            verify(grid.columns.count > 0, "default values loaded")
+            // C++ QGCCorePlugin::_createAirshipPagedDefaultSettings fills airship
+            // defaults (AltitudeRelative/ClimbRate/...) at componentComplete for
+            // settingsGroup "AirshipInstr.Page0". QML no longer injects defaults.
+            compare(grid.columns.count, 2, "page 0 has 2 columns (airship defaults)")
+            var firstFact = grid.columns.get(0).get(0)
+            compare(firstFact.factName, "AltitudeRelative", "page 0 col0 row0 is AltitudeRelative")
         }
 
         function test_pageCountClamped() {

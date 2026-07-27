@@ -171,6 +171,16 @@ QString QGCCorePlugin::showAdvancedUIMessage() const
 
 void QGCCorePlugin::factValueGridCreateDefaultSettings(FactValueGrid* factValueGrid)
 {
+    // Airship paged instrument panel: inject airship-specific defaults per page
+    // instead of the generic default layout. The QML Component.onCompleted guard
+    // (columns.count===0) never triggers because this virtual method already
+    // fills defaults during FactValueGrid::componentComplete.
+    const QString settingsGroup = factValueGrid->settingsGroup();
+    if (settingsGroup.startsWith(QStringLiteral("AirshipInstr.Page"))) {
+        _createAirshipPagedDefaultSettings(factValueGrid);
+        return;
+    }
+
 #if defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
     FactValueGrid::FontSize defaultFontSize = FactValueGrid::DefaultFontSize;
 #else
@@ -280,6 +290,109 @@ void QGCCorePlugin::factValueGridCreateDefaultSettings(FactValueGrid* factValueG
         value->setIcon(QStringLiteral("travel-walk.svg"));
         value->setText(value->fact()->shortDescription());
         value->setShowUnits(true);
+    }
+}
+
+void QGCCorePlugin::_createAirshipPagedDefaultSettings(FactValueGrid *factValueGrid)
+{
+    // Extract page index from settingsGroup "AirshipInstr.PageN".
+    const QString settingsGroup = factValueGrid->settingsGroup();
+    const int prefixLen = static_cast<int>(QStringLiteral("AirshipInstr.Page").length());
+    int pageIndex = settingsGroup.mid(prefixLen).toInt();
+
+    // Airship default telemetry: 3 pages, 2 columns each, up to 3 rows per column.
+    // factName nullptr marks an empty slot (column has fewer rows than the page max).
+    struct AirshipIVD {
+        const char *group;
+        const char *factName;
+        const char *icon;
+        const char *text;
+    };
+
+    static constexpr AirshipIVD kPages[3][2][3] = {
+        // Page 0: flight core
+        {
+            {
+                {"Vehicle", "AltitudeRelative", "arrow-thick-up.svg", nullptr},
+                {"Vehicle", "ClimbRate", "arrow-simple-up.svg", nullptr},
+                {"Vehicle", "Heading", nullptr, nullptr},
+            },
+            {
+                {"Vehicle", "GroundSpeed", "arrow-simple-right.svg", nullptr},
+                {"Vehicle", "FlightTime", "timer.svg", nullptr},
+                {"Vehicle", "DistanceToHome", "bookmark copy 3.svg", nullptr},
+            },
+        },
+        // Page 1: buoyancy / attitude
+        {
+            {
+                {"ballast", "NetBuoyancy", nullptr, nullptr},
+                {"ballast", "AltitudeError", nullptr, nullptr},
+                {"Vehicle", "Roll", nullptr, nullptr},
+            },
+            {
+                {"Vehicle", "Pitch", nullptr, nullptr},
+                {"ballast", "BlowerLeft", nullptr, nullptr},
+                {"ballast", "BlowerRight", nullptr, nullptr},
+            },
+        },
+        // Page 2: energy / mission
+        {
+            {
+                {"Vehicle", "AltitudeAMSL", "arrow-thick-up.svg", nullptr},
+                {"Vehicle", "FlightDistance", "travel-walk.svg", nullptr},
+                {nullptr, nullptr, nullptr, nullptr},
+            },
+            {
+                {"Vehicle", "ThrottlePct", nullptr, "Thr"},
+                {"Vehicle", "AirSpeed", nullptr, "AirSpd"},
+                {nullptr, nullptr, nullptr, nullptr},
+            },
+        },
+    };
+
+    constexpr int kPageCount = 3;
+    if (pageIndex < 0 || pageIndex >= kPageCount) {
+        pageIndex = kPageCount - 1;
+    }
+
+    constexpr int kColCount = 2;
+    constexpr int kMaxRows = 3;
+    int rowCount = 0;
+    for (int c = 0; c < kColCount; c++) {
+        int r = 0;
+        while (r < kMaxRows && kPages[pageIndex][c][r].factName != nullptr) {
+            r++;
+        }
+        rowCount = (r > rowCount) ? r : rowCount;
+    }
+
+    factValueGrid->setFontSize(FactValueGrid::MediumFontSize);
+    (void) factValueGrid->appendColumn();
+    (void) factValueGrid->appendColumn();
+    for (int r = 0; r < rowCount; r++) {
+        factValueGrid->appendRow();
+    }
+
+    for (int c = 0; c < kColCount; c++) {
+        QmlObjectListModel *column = factValueGrid->columns()->value<QmlObjectListModel *>(c);
+        for (int r = 0; r < rowCount; r++) {
+            const AirshipIVD &ivd = kPages[pageIndex][c][r];
+            if (ivd.factName == nullptr) {
+                continue;
+            }
+            InstrumentValueData *value = column->value<InstrumentValueData *>(r);
+            value->setFact(QString::fromLatin1(ivd.group), QString::fromLatin1(ivd.factName));
+            if (ivd.icon) {
+                value->setIcon(QString::fromLatin1(ivd.icon));
+            }
+            if (ivd.text) {
+                value->setText(QString::fromLatin1(ivd.text));
+            } else if (value->fact()) {
+                value->setText(value->fact()->shortDescription());
+            }
+            value->setShowUnits(true);
+        }
     }
 }
 

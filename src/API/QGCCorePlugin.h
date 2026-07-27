@@ -227,6 +227,7 @@ protected:
 private:
     void _setShowTouchAreas(bool show);
     void _setShowAdvancedUI(bool show);
+    void _createAirshipPagedDefaultSettings(FactValueGrid *factValueGrid);
 
     QGCOptions *_defaultOptions = nullptr;
     QmlObjectListModel *_emptyCustomMapItems = nullptr;
