@@ -32,9 +32,9 @@ Item {
             ["ballast.netBuoyancy", "ballast.altitudeError", "Vehicle.roll"],
             ["Vehicle.pitch", "ballast.blowerLeft", "ballast.blowerRight"]
         ]},
-        // 第 3 页：能源/任务（battery fact 名 percentRemaining；见 concerns）
+        // 第 3 页：能源/任务（altitudeAMSL 替代 battery：QGC 网格 setFact 不支持 battery list model）
         { cols: [
-            ["battery.percentRemaining", "Vehicle.flightDistance"],
+            ["Vehicle.altitudeAMSL", "Vehicle.flightDistance"],
             ["Vehicle.throttlePct", "Vehicle.airSpeed"]
         ]}
     ]
