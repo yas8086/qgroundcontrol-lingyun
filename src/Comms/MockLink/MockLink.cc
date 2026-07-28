@@ -653,8 +653,8 @@ void MockLink::_sendAirshipBallastNamedValueFloats()
     const double t = static_cast<double>(timeBootMs) / 1000.0;
 
     const float buoy    = static_cast<float>(5.0 + 5.0 * std::sin(t));          // 净浮力 N：0~10
-    const float blw_l   = static_cast<float>(50.0 + 50.0 * std::cos(t));       // 左鼓风机 %：0~100
-    const float blw_r   = static_cast<float>(50.0 + 50.0 * std::sin(t));      // 右鼓风机 %：0~100
+    const float blw_l   = static_cast<float>(0.5 + 0.5 * std::cos(t));          // 左鼓风机 [0,1]：与 AirshipBallastHUD *100 显示一致
+    const float blw_r   = static_cast<float>(0.5 + 0.5 * std::sin(t));          // 右鼓风机 [0,1]：与 AirshipBallastHUD *100 显示一致
     const float vlv_l   = static_cast<float>((timeBootMs / 2000) % 2);       // 左阀门 0/1
     const float vlv_r   = static_cast<float>(1 - ((timeBootMs / 2000) % 2)); // 右阀门 0/1 反相
     const float alt_err = static_cast<float>(5.0 * std::sin(t / 2.0));         // 高度误差 m：±5
@@ -2178,7 +2178,7 @@ void MockLink::_sendRCChannels()
         _vehicleComponentId,
         _outgoingMavlinkChannel,
         &msg,
-        0, // timeBootMs
+        0, // time_boot_ms
         16, // chancount
         1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, // channel 1-8
         1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, // channel 9-16
@@ -2519,7 +2519,7 @@ void MockLink::_sendGeneralMetaData()
         _vehicleComponentId,
         _outgoingMavlinkChannel,
         &responseMsg,
-        0, // timeBootMs
+        0, // time_boot_ms
         100, // general_metadata_file_crc
         metaDataURI
     );

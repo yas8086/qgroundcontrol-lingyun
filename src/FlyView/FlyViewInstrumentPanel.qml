@@ -31,9 +31,12 @@ SelectableControl {
         // Only handle press-and-hold; do not intercept onClicked so clicks
         // continue to propagate to the SelectableControl's QGCMouseArea
         // (which handles right-click -> selection UI on desktop).
-        // 飞艇专用：长按弹显隐面板；非飞艇 return 不 accept，事件透传保留原 SelectableControl 长按行为
+        // 飞艇专用：长按弹显隐面板；非飞艇 mouse.accepted=false 透传，保留原 SelectableControl 长按行为
         onPressAndHold: (mouse) => {
-            if (!_isAirship) return
+            if (!_isAirship) {
+                mouse.accepted = false
+                return
+            }
             visibilityPopupFactory.open({})
             mouse.accepted = true
         }
