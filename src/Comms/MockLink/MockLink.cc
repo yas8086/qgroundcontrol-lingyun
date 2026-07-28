@@ -636,6 +636,68 @@ void MockLink::_sendNamedValueFloats()
         cosVal
     );
     respondWithMavlinkMessage(msg);
+
+    // 飞艇专用：补发 AirshipBallastFactGroup 期望的 6 个 NAMED_VALUE_FLOAT
+    // (buoy/blw_l/blw_r/vlv_l/vlv_r/alt_err)，让飞艇 MockLink 下第 2 页浮力/姿态
+    // 数据可在 GUI 端到端验证
+    if (_vehicleType == MAV_TYPE_AIRSHIP) {
+        _sendAirshipBallastNamedValueFloats();
+    }
+}
+
+void MockLink::_sendAirshipBallastNamedValueFloats()
+{
+    // 飞艇专用：发送 AirshipBallastFactGroup 期望的 6 个 NAMED_VALUE_FLOAT
+    // 数值采用与 sin_wave/cos_wave 一致的时变模式，方便 GUI 肉眼观察数据更新
+    const uint32_t timeBootMs = static_cast<uint32_t>(_runningTime.elapsed());
+    const double t = static_cast<double>(timeBootMs) / 1000.0;
+
+    const float buoy    = static_cast<float>(5.0 + 5.0 * std::sin(t));          // 净浮力 N：0~10
+    const float blw_l   = static_cast<float>(50.0 + 50.0 * std::cos(t));       // 左鼓风机 %：0~100
+    const float blw_r   = static_cast<float>(50.0 + 50.0 * std::sin(t));      // 右鼓风机 %：0~100
+    const float vlv_l   = static_cast<float>((timeBootMs / 2000) % 2);       // 左阀门 0/1
+    const float vlv_r   = static_cast<float>(1 - ((timeBootMs / 2000) % 2)); // 右阀门 0/1 反相
+    const float alt_err = static_cast<float>(5.0 * std::sin(t / 2.0));         // 高度误差 m：±5
+
+    // NAMED_VALUE_FLOAT.name is a fixed 10-byte field; pack_chan memcpys 10 bytes unconditionally.
+    static constexpr char kBuoyName[10]   = "buoy";
+    static constexpr char kBlwLName[10]   = "blw_l";
+    static constexpr char kBlwRName[10]   = "blw_r";
+    static constexpr char kVlvLName[10]   = "vlv_l";
+    static constexpr char kVlvRName[10]   = "vlv_r";
+    static constexpr char kAltErrName[10] = "alt_err";
+
+    mavlink_message_t msg{};
+    (void) mavlink_msg_named_value_float_pack_chan(
+        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel,
+        &msg, timeBootMs, kBuoyName, buoy
+    );
+    respondWithMavlinkMessage(msg);
+    (void) mavlink_msg_named_value_float_pack_chan(
+        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel,
+        &msg, timeBootMs, kBlwLName, blw_l
+    );
+    respondWithMavlinkMessage(msg);
+    (void) mavlink_msg_named_value_float_pack_chan(
+        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel,
+        &msg, timeBootMs, kBlwRName, blw_r
+    );
+    respondWithMavlinkMessage(msg);
+    (void) mavlink_msg_named_value_float_pack_chan(
+        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel,
+        &msg, timeBootMs, kVlvLName, vlv_l
+    );
+    respondWithMavlinkMessage(msg);
+    (void) mavlink_msg_named_value_float_pack_chan(
+        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel,
+        &msg, timeBootMs, kVlvRName, vlv_r
+    );
+    respondWithMavlinkMessage(msg);
+    (void) mavlink_msg_named_value_float_pack_chan(
+        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel,
+        &msg, timeBootMs, kAltErrName, alt_err
+    );
+    respondWithMavlinkMessage(msg);
 }
 
 void MockLink::_sendVibration()
@@ -2116,7 +2178,7 @@ void MockLink::_sendRCChannels()
         _vehicleComponentId,
         _outgoingMavlinkChannel,
         &msg,
-        0, // time_boot_ms
+        0, // timeBootMs
         16, // chancount
         1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, // channel 1-8
         1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, // channel 9-16
@@ -2457,7 +2519,7 @@ void MockLink::_sendGeneralMetaData()
         _vehicleComponentId,
         _outgoingMavlinkChannel,
         &responseMsg,
-        0, // time_boot_ms
+        0, // timeBootMs
         100, // general_metadata_file_crc
         metaDataURI
     );
