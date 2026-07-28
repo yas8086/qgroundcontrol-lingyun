@@ -184,6 +184,17 @@ void QGroundControlQmlGlobal::startAPMArduRoverMockLink(bool sendStatusText, boo
 #endif
 }
 
+void QGroundControlQmlGlobal::startAirshipMockLink(bool sendStatusText, bool enableCamera, bool enableGimbal)
+{
+#ifdef QT_DEBUG
+    MockLink::startAirshipMockLink(sendStatusText, enableCamera, enableGimbal);
+#else
+    Q_UNUSED(sendStatusText);
+    Q_UNUSED(enableCamera);
+    Q_UNUSED(enableGimbal);
+#endif
+}
+
 void QGroundControlQmlGlobal::stopOneMockLink(void)
 {
 #ifdef QT_DEBUG

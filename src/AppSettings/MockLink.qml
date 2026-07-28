@@ -44,6 +44,11 @@ Rectangle {
                 onClicked:          QGroundControl.startPX4MockLink(sendStatusText.checked, enableCamera.checked, enableGimbal.checked)
             }
             QGCButton {
+                text:               qsTr("PX4 Airship MockLink")
+                Layout.fillWidth:   true
+                onClicked:          QGroundControl.startAirshipMockLink(sendStatusText.checked, enableCamera.checked, enableGimbal.checked)
+            }
+            QGCButton {
                 text:               qsTr("APM ArduCopter Vehicle")
                 visible:            QGroundControl.hasAPMSupport
                 Layout.fillWidth:   true

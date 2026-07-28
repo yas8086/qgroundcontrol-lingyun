@@ -120,6 +120,7 @@ public:
     Q_INVOKABLE void    startAPMArduPlaneMockLink   (bool sendStatusText, bool enableCamera, bool enableGimbal);
     Q_INVOKABLE void    startAPMArduSubMockLink     (bool sendStatusText, bool enableCamera, bool enableGimbal);
     Q_INVOKABLE void    startAPMArduRoverMockLink   (bool sendStatusText, bool enableCamera, bool enableGimbal);
+    Q_INVOKABLE void    startAirshipMockLink        (bool sendStatusText, bool enableCamera, bool enableGimbal);
     Q_INVOKABLE void    stopOneMockLink             (void);
 
     Q_INVOKABLE bool linesIntersect(QPointF xLine1, QPointF yLine1, QPointF xLine2, QPointF yLine2);
