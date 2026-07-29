@@ -1,0 +1,45 @@
+{
+    "version":      1,
+    "fileType":     "FactMetaData",
+    "QGC.MetaData.Facts":
+[
+{
+    "name":             "netBuoyancy",
+    "shortDesc":        "Net Buoyancy",
+    "type":             "double",
+    "decimalPlaces":    1,
+    "units":            "N"
+},
+{
+    "name":             "blowerLeft",
+    "shortDesc":        "Blower L",
+    "type":             "double",
+    "decimalPlaces":    2
+},
+{
+    "name":             "blowerRight",
+    "shortDesc":        "Blower R",
+    "type":             "double",
+    "decimalPlaces":    2
+},
+{
+    "name":             "valveLeft",
+    "shortDesc":        "Valve L",
+    "type":             "double",
+    "decimalPlaces":    0
+},
+{
+    "name":             "valveRight",
+    "shortDesc":        "Valve R",
+    "type":             "double",
+    "decimalPlaces":    0
+},
+{
+    "name":             "altitudeError",
+    "shortDesc":        "Alt Error",
+    "type":             "double",
+    "decimalPlaces":    1,
+    "units":            "m"
+}
+]
+}

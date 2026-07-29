@@ -2,7 +2,7 @@
 #include "Vehicle.h"
 
 AirshipBallastFactGroup::AirshipBallastFactGroup(QObject *parent)
-    : FactGroup(200, parent)
+    : FactGroup(200, QStringLiteral(":/json/Vehicle/AirshipBallastFact.json"), parent)
 {
     _addFact(&_netBuoyancyFact);
     _addFact(&_blowerLeftFact);

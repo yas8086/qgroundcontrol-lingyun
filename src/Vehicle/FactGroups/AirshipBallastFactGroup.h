@@ -5,7 +5,7 @@
 /**
  * @brief 飞艇浮力控制状态 FactGroup
  *
- * 接收 PX4 通过 NAMED_VALUE_FLOAT 消息发送的 ballast_setpoint 字段，
+ * 接收 PX4 通过 6 个 NAMED_VALUE_FLOAT 消息发送的飞艇压舱参数，
  * 转换为 QGC Fact 供 FlyView 仪表盘显示。
  *
  * NAMED_VALUE_FLOAT name 映射：
