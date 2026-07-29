@@ -31,6 +31,11 @@ Item {
 
     function deleteLastPage() {
         if (pageCount > minPages) {
+            // C3 fix: 清理被删页的 QSettings 残留，避免再增页时加载幽灵配置
+            var lastPage = swipeView.itemAt(pageCount - 1)
+            if (lastPage && lastPage.factValueGrid) {
+                lastPage.factValueGrid.resetToDefaults()
+            }
             _flyViewSettings.airshipInstrumentPageCount.rawValue = pageCount - 1
         }
     }
