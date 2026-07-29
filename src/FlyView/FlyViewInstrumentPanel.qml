@@ -51,6 +51,7 @@ SelectableControl {
         id: visibilityPopup
 
         QGCPopupDialog {
+            id:      visibilityPopupDialog
             title:   qsTr("Show / Hide Panels")
             buttons: Dialog.Close
 
@@ -67,6 +68,15 @@ SelectableControl {
                     text:     qsTr("Multi-Vehicle Panel")
                     checked:   QGroundControl.settingsManager.appSettings.enableMultiVehiclePanel.rawValue
                     onClicked: QGroundControl.settingsManager.appSettings.enableMultiVehiclePanel.rawValue = checked
+                }
+
+                QGCButton {
+                    Layout.fillWidth: true
+                    text:            qsTr("Switch Instrument Panel")
+                    onClicked: {
+                        _showSelectionUI = true
+                        visibilityPopupDialog.done(Dialog.Accepted)
+                    }
                 }
             }
         }
