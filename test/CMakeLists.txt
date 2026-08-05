@@ -56,6 +56,7 @@ endif()
 
 add_subdirectory(UnitTestFramework)
 add_subdirectory(ADSB)
+add_subdirectory(Airship)
 add_subdirectory(AnalyzeView)
 add_subdirectory(Camera)
 add_subdirectory(VideoManager)
