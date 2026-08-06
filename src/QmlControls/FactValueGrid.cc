@@ -97,8 +97,14 @@ QGCMAVLinkTypes::VehicleClass_t FactValueGrid::vehicleClass(void) const
 
 void FactValueGrid::resetToDefaults(void)
 {
+    // Remove the settings actually written by _saveSettings() (grouped under
+    // _settingsKey(), i.e. "<settingsGroup>-<vehicleClass>"), not the bare
+    // _settingsGroup. Previously _settingsGroup was removed here, which never
+    // matched the persisted group and left stale settings behind (ghost
+    // configuration). This is the Group value used by the airship paged
+    // instrument's deleteLastPage() to clear a deleted page's settings.
     QSettings settings;
-    settings.remove(_settingsGroup);
+    settings.remove(_settingsKey());
     _resetFromSettings();
 }
 

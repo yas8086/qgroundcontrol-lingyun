@@ -26,4 +26,7 @@ private slots:
     void _airshipShowTelemetryBar_default_test();
     void _airshipInstrumentPageCount_readWrite_test();
     void _airshipShowTelemetryBar_readWrite_test();
+    // P0 幽灵配置回归：resetToDefaults() 必须删除带 vehicleClass 后缀的
+    // QSettings group（"_settingsKey()"），而非不带后缀的 _settingsGroup。
+    void _resetToDefaults_removesVehicleClassGroup_test();
 };
