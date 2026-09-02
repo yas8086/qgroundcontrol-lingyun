@@ -10,7 +10,11 @@ SensorsComponent::SensorsComponent(Vehicle* vehicle, AutoPilotPlugin* autopilot,
 
     if (_vehicle->fixedWing() || _vehicle->vtol() || _vehicle->airship()) {
         _airspeedCalTriggerParams << "SENS_DPRES_OFF";
-        if (_vehicle->firmwareMajorVersion() >= 1 && _vehicle->firmwareMinorVersion() >= 14) {
+        // Custom PX4 forks can report arbitrary version numbers (Lingyun01 airship
+        // reports 1.6.2dev while carrying modern 1.14+ params), so treat airship
+        // explicitly as modern. Verified on Lingyun01 firmware: SYS_HAS_NUM_ASPD
+        // exists, FW_ARSP_MODE/CBRK_AIRSPD_CHK do not.
+        if (_vehicle->airship() || (_vehicle->firmwareMajorVersion() >= 1 && _vehicle->firmwareMinorVersion() >= 14)) {
             _airspeedCalTriggerParams << "SYS_HAS_NUM_ASPD";
         } else {
             _airspeedCalTriggerParams << "FW_ARSP_MODE" << "CBRK_AIRSPD_CHK";
@@ -55,18 +59,22 @@ bool SensorsComponent::setupComplete(void) const
     }
 
     if (_vehicle->fixedWing() || _vehicle->vtol() || _vehicle->airship()) {
-        if (_vehicle->firmwareMajorVersion() > 1 || (_vehicle->firmwareMajorVersion() == 1 && _vehicle->firmwareMinorVersion() > 14)) {
-            if (_vehicle->parameterManager()->getParameter(ParameterManager::defaultComponentId, "SYS_HAS_NUM_ASPD")->rawValue().toBool() &&
-                    _vehicle->parameterManager()->getParameter(ParameterManager::defaultComponentId, "SENS_DPRES_OFF")->rawValue().toFloat() == 0.0f) {
+        // Decide by parameter existence instead of firmware version: custom forks can
+        // report arbitrary version numbers (see constructor comment).
+        auto *pm = _vehicle->parameterManager();
+        if (pm->parameterExists(ParameterManager::defaultComponentId, "SYS_HAS_NUM_ASPD")) {
+            if (pm->getParameter(ParameterManager::defaultComponentId, "SYS_HAS_NUM_ASPD")->rawValue().toBool() &&
+                    pm->getParameter(ParameterManager::defaultComponentId, "SENS_DPRES_OFF")->rawValue().toFloat() == 0.0f) {
                 return false;
             }
-        } else {
-            if (!_vehicle->parameterManager()->getParameter(ParameterManager::defaultComponentId, "FW_ARSP_MODE")->rawValue().toBool() &&
-                    _vehicle->parameterManager()->getParameter(ParameterManager::defaultComponentId, "CBRK_AIRSPD_CHK")->rawValue().toInt() != 162128 &&
-                    _vehicle->parameterManager()->getParameter(ParameterManager::defaultComponentId, "SENS_DPRES_OFF")->rawValue().toFloat() == 0.0f) {
+        } else if (pm->parameterExists(ParameterManager::defaultComponentId, "FW_ARSP_MODE")) {
+            if (!pm->getParameter(ParameterManager::defaultComponentId, "FW_ARSP_MODE")->rawValue().toBool() &&
+                    pm->getParameter(ParameterManager::defaultComponentId, "CBRK_AIRSPD_CHK")->rawValue().toInt() != 162128 &&
+                    pm->getParameter(ParameterManager::defaultComponentId, "SENS_DPRES_OFF")->rawValue().toFloat() == 0.0f) {
                 return false;
             }
         }
+        // else: firmware has no airspeed params at all — nothing to check
     }
 
     return true;
@@ -131,15 +139,14 @@ QUrl SensorsComponent::summaryQmlSource(void) const
  bool SensorsComponent::_airspeedCalSupported(void) const
  {
     if (_vehicle->fixedWing() || _vehicle->vtol() || _vehicle->airship()) {
-        if (_vehicle->firmwareMajorVersion() > 1 || (_vehicle->firmwareMajorVersion() == 1 && _vehicle->firmwareMinorVersion() > 14)) {
-            if (_vehicle->parameterManager()->getParameter(ParameterManager::defaultComponentId, "SYS_HAS_NUM_ASPD")->rawValue().toBool()) {
-                return true;
-            }
-        } else {
-            if (!_vehicle->parameterManager()->getParameter(ParameterManager::defaultComponentId, "FW_ARSP_MODE")->rawValue().toBool() &&
-                    _vehicle->parameterManager()->getParameter(ParameterManager::defaultComponentId, "CBRK_AIRSPD_CHK")->rawValue().toInt() != 162128) {
-                return true;
-            }
+        // Decide by parameter existence instead of firmware version (see constructor comment).
+        auto *pm = _vehicle->parameterManager();
+        if (pm->parameterExists(ParameterManager::defaultComponentId, "SYS_HAS_NUM_ASPD")) {
+            return pm->getParameter(ParameterManager::defaultComponentId, "SYS_HAS_NUM_ASPD")->rawValue().toBool();
+        }
+        if (pm->parameterExists(ParameterManager::defaultComponentId, "FW_ARSP_MODE")) {
+            return !pm->getParameter(ParameterManager::defaultComponentId, "FW_ARSP_MODE")->rawValue().toBool() &&
+                    pm->getParameter(ParameterManager::defaultComponentId, "CBRK_AIRSPD_CHK")->rawValue().toInt() != 162128;
         }
     }
 
