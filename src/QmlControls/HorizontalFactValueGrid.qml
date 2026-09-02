@@ -109,7 +109,8 @@ HorizontalFactValueGridTemplate {
                     leftPadding:            0
                     rightPadding:           0
                     text:                   qsTr("+")
-                    enabled:                (_root.width + (2 * (_rowButtonWidth + _margins))) < screen.width
+                    enabled:                (factValueGrid.maxColumns === 0 || _root.columns.count < factValueGrid.maxColumns) &&
+                                            (_root.width + (2 * (_rowButtonWidth + _margins))) < screen.width
                     onClicked:              appendColumn()
                 }
 
@@ -140,7 +141,8 @@ HorizontalFactValueGridTemplate {
                 leftPadding:            0
                 rightPadding:           0
                 text:                   qsTr("+")
-                enabled:                (_root.height + (2 * (_rowButtonHeight + _margins))) < (screen.height - ScreenTools.toolbarHeight)
+                enabled:                (factValueGrid.maxRows === 0 || _root.rowCount < factValueGrid.maxRows) &&
+                                        (_root.height + (2 * (_rowButtonHeight + _margins))) < (screen.height - ScreenTools.toolbarHeight)
                 onClicked:              appendRow()
             }
 

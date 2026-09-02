@@ -35,8 +35,17 @@ public:
     Q_PROPERTY(QStringList          fontSizeNames   MEMBER _fontSizeNames                               CONSTANT)
 
     // The following properties should only be set at initial object creation time
-    Q_PROPERTY(QString              settingsGroup           MEMBER _settingsGroup           NOTIFY settingsGroupChanged             REQUIRED)
+    // settingsGroup uses a WRITE setter because when assigned through chained QML
+    // aliases (e.g. AirshipPagedValuesBar -> TelemetryValuesBar -> grid) the value
+    // arrives after componentComplete, so the setter re-runs _resetFromSettings.
+    Q_PROPERTY(QString              settingsGroup           READ settingsGroup      WRITE setSettingsGroup  NOTIFY settingsGroupChanged             REQUIRED)
     Q_PROPERTY(Vehicle *            specificVehicleForCard  MEMBER _specificVehicleForCard  NOTIFY specificVehicleForCardChanged    REQUIRED)   ///< null means track active vehicle, set to specific vehicle to track a single vehicle and share settings with other cards
+    /// If true, newly appended value slots start empty (cleared) instead of being pre-filled with AltitudeRelative
+    Q_PROPERTY(bool                 emptyNewValues          MEMBER _emptyNewValues          NOTIFY emptyNewValuesChanged)
+    /// Hard limits on grid size (0 = unlimited). Enforced inside appendColumn/appendRow
+    /// so both user edits and plugin default injection respect them.
+    Q_PROPERTY(int                  maxColumns              MEMBER _maxColumns              NOTIFY maxColumnsChanged)
+    Q_PROPERTY(int                  maxRows                 MEMBER _maxRows                 NOTIFY maxRowsChanged)
 
     Q_INVOKABLE void                resetToDefaults (void);
     Q_INVOKABLE QmlObjectListModel* appendColumn    (void);
@@ -46,6 +55,9 @@ public:
 
     QmlObjectListModel*         columns                 (void) const { return _columns; }
     QString                     settingsGroup           (void) const { return _settingsGroup; }
+    void                        setSettingsGroup        (const QString& settingsGroup);
+    void                        setMaxColumns           (int maxColumns) { if (_maxColumns != maxColumns) { _maxColumns = maxColumns; emit maxColumnsChanged(_maxColumns); } }
+    void                        setMaxRows              (int maxRows) { if (_maxRows != maxRows) { _maxRows = maxRows; emit maxRowsChanged(_maxRows); } }
     FontSize                    fontSize                (void) const { return _fontSize; }
     QStringList                 iconNames               (void) const { return _iconNames; }
     QGCMAVLinkTypes::VehicleClass_t  vehicleClass            (void) const;
@@ -63,6 +75,9 @@ signals:
     void rowCountChanged(int rowCount);
     void settingsGroupChanged(QString settingsGroup);
     void specificVehicleForCardChanged(Vehicle* vehicle);
+    void emptyNewValuesChanged(bool emptyNewValues);
+    void maxColumnsChanged(int maxColumns);
+    void maxRowsChanged(int maxRows);
 
 protected:
     Q_DISABLE_COPY(FactValueGrid)
@@ -70,6 +85,10 @@ protected:
     QString                     _settingsGroup;
     FontSize                    _fontSize               = DefaultFontSize;
     bool                        _preventSaveSettings    = false;
+    bool                        _emptyNewValues         = false;
+    bool                        _componentComplete      = false;
+    int                         _maxColumns             = 0;
+    int                         _maxRows                = 0;
     QmlObjectListModel*         _columns                = nullptr;
     int                         _rowCount               = 0;
     Vehicle*                    _specificVehicleForCard = nullptr;

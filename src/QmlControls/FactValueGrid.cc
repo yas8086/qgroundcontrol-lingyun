@@ -36,6 +36,8 @@ void FactValueGrid::componentComplete(void)
 
     connect(this, &FactValueGrid::fontSizeChanged, this, &FactValueGrid::_saveSettings);
 
+    _componentComplete = true;
+
     if (_specificVehicleForCard) {
         _vehicleCardInstanceList.append(this);
         _initForNewVehicle(_specificVehicleForCard);
@@ -106,6 +108,22 @@ void FactValueGrid::resetToDefaults(void)
     QSettings settings;
     settings.remove(_settingsKey());
     _resetFromSettings();
+}
+
+void FactValueGrid::setSettingsGroup(const QString& settingsGroup)
+{
+    if (_settingsGroup == settingsGroup) {
+        return;
+    }
+    _settingsGroup = settingsGroup;
+    emit settingsGroupChanged(_settingsGroup);
+    // When settingsGroup is assigned through chained QML aliases the value
+    // arrives after componentComplete, which already ran _resetFromSettings
+    // with an empty group. Re-run it now that the real group is known so the
+    // saved settings (or plugin default injection) apply to the right group.
+    if (_componentComplete) {
+        _resetFromSettings();
+    }
 }
 
 QString FactValueGrid::_pascalCase(const QString& text)
@@ -196,6 +214,9 @@ void FactValueGrid::_connectSaveSignals(InstrumentValueData* value)
 
 void FactValueGrid::appendRow(void)
 {
+    if (_maxRows > 0 && _rowCount >= _maxRows) {
+        return;
+    }
     for (int colIndex=0; colIndex<_columns->count(); colIndex++) {
         QmlObjectListModel* list = _columns->value<QmlObjectListModel*>(colIndex);
         list->append(_createNewInstrumentValueWorker(list));
@@ -222,6 +243,10 @@ void FactValueGrid::deleteLastRow(void)
 
 QmlObjectListModel* FactValueGrid::appendColumn(void)
 {
+    if (_maxColumns > 0 && _columns->count() >= _maxColumns) {
+        return nullptr;
+    }
+
     QmlObjectListModel* newList = new QmlObjectListModel(_columns);
     _columns->append(newList);
 
@@ -252,8 +277,14 @@ void FactValueGrid::deleteLastColumn(void)
 InstrumentValueData* FactValueGrid::_createNewInstrumentValueWorker(QObject* parent)
 {
     InstrumentValueData* value = new InstrumentValueData(this, parent);
-    value->setFact(InstrumentValueData::vehicleFactGroupName, "AltitudeRelative");
-    value->setText(value->fact()->shortDescription());
+    if (_emptyNewValues) {
+        // Empty slot: user picks the fact via the edit dialog instead of a
+        // repeated default value piling up
+        value->clearFact();
+    } else {
+        value->setFact(InstrumentValueData::vehicleFactGroupName, "AltitudeRelative");
+        value->setText(value->fact()->shortDescription());
+    }
     _connectSaveSignals(value);
     return value;
 
@@ -310,6 +341,15 @@ QString FactValueGrid::_settingsKey(void)
 
 void FactValueGrid::_resetFromSettings(void)
 {
+    // Empty settingsGroup means the real group name has not been assigned yet
+    // (chained QML aliases assign it after componentComplete). Creating defaults
+    // for an empty group would run the generic default layout and immediately
+    // persist it, shadowing the real group's settings. Skip and wait for
+    // setSettingsGroup() to trigger a reload.
+    if (_settingsGroup.isEmpty()) {
+        return;
+    }
+
     _preventSaveSettings = true;
 
     _columns->deleteLater();
