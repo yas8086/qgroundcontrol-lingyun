@@ -7,6 +7,9 @@ import QGroundControl.Controls
 import QGroundControl.FactControls
 import QGroundControl.ScreenTools
 
+// 飞艇浮力控制参数页（02_parameters.md §9/§10 分组契约）
+// 注意：V2 已删除 TRIM_BALLOON_* 全族（四囊同步，气囊不参与横滚）；
+//       BALLOON_THRSHLD 为死参数（定义+加载但零引用），均不展示。
 ColumnLayout {
     property real _availableHeight: availableHeight
     property real _availableWidth:  availableWidth
@@ -27,7 +30,7 @@ ColumnLayout {
             width: parent.width
             spacing: ScreenTools.defaultFontPixelHeight / 2
 
-            // 浮力辅助控制
+            // 浮力辅助控制（高度 PID）
             QGCGroupBox {
                 title: qsTr("Buoyancy Assist Control")
                 Layout.fillWidth: true
@@ -46,26 +49,6 @@ ColumnLayout {
                     }
                     LabelledFactTextField {
                         Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "BALLOON_THRSHLD")
-                    }
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "BALLOON_RATE_MAX")
-                    }
-                }
-            }
-
-            // 浮力 PID
-            QGCGroupBox {
-                title: qsTr("Buoyancy PID")
-                Layout.fillWidth: true
-
-                ColumnLayout {
-                    spacing: ScreenTools.defaultFontPixelHeight / 4
-                    width: parent.width
-
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
                         fact: controller.getParameterFact(-1, "BALLOON_P_GAIN")
                     }
                     LabelledFactTextField {
@@ -80,18 +63,34 @@ ColumnLayout {
                         Layout.fillWidth: true
                         fact: controller.getParameterFact(-1, "BALLOON_I_MAX")
                     }
+                    LabelledFactTextField {
+                        Layout.fillWidth: true
+                        fact: controller.getParameterFact(-1, "BALLOON_RATE_MAX")
+                    }
                 }
             }
 
-            // 鼓风机与阀门
+            // 硬件参数（气囊/风机/阀门物理特性）
             QGCGroupBox {
-                title: qsTr("Blower & Valve")
+                title: qsTr("Hardware")
                 Layout.fillWidth: true
 
                 ColumnLayout {
                     spacing: ScreenTools.defaultFontPixelHeight / 4
                     width: parent.width
 
+                    LabelledFactTextField {
+                        Layout.fillWidth: true
+                        fact: controller.getParameterFact(-1, "BALLOON_M_MAX")
+                    }
+                    LabelledFactTextField {
+                        Layout.fillWidth: true
+                        fact: controller.getParameterFact(-1, "BLWR_FLOW")
+                    }
+                    LabelledFactTextField {
+                        Layout.fillWidth: true
+                        fact: controller.getParameterFact(-1, "VALVE_FLOW_MAX")
+                    }
                     LabelledFactTextField {
                         Layout.fillWidth: true
                         fact: controller.getParameterFact(-1, "BLOWER_TAU")
@@ -103,9 +102,9 @@ ColumnLayout {
                 }
             }
 
-            // 左右浮力配平
+            // 互锁（防频繁启停/管道串压）
             QGCGroupBox {
-                title: qsTr("Left-Right Buoyancy Trim")
+                title: qsTr("Interlock")
                 Layout.fillWidth: true
 
                 ColumnLayout {
@@ -114,26 +113,18 @@ ColumnLayout {
 
                     LabelledFactTextField {
                         Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "TRIM_BALLOON_EN")
+                        fact: controller.getParameterFact(-1, "BALLOON_MIN_ON")
                     }
                     LabelledFactTextField {
                         Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "TRIM_BALLOON_P")
-                    }
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "TRIM_BALLOON_I")
-                    }
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "TRIM_BALLOON_IMX")
+                        fact: controller.getParameterFact(-1, "BALLOON_SWT_GD")
                     }
                 }
             }
 
-            // 横滚主动控制（四气囊浮力差）
+            // 安全（紧急排气/输出使能）
             QGCGroupBox {
-                title: qsTr("Roll Control (4-Ballast Active)")
+                title: qsTr("Safety")
                 Layout.fillWidth: true
 
                 ColumnLayout {
@@ -142,59 +133,11 @@ ColumnLayout {
 
                     LabelledFactTextField {
                         Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "BALLOON_R_EN")
+                        fact: controller.getParameterFact(-1, "BALLOON_EMG_EN")
                     }
                     LabelledFactTextField {
                         Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "BALLOON_R_P")
-                    }
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "BALLOON_R_I")
-                    }
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "BALLOON_R_IMX")
-                    }
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "BALLOON_RR_P")
-                    }
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "BALLOON_RR_D")
-                    }
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "BALLOON_R_MAX")
-                    }
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "BALLOON_M_MAX")
-                    }
-                }
-            }
-
-            // 风机与阀门执行器参数
-            QGCGroupBox {
-                title: qsTr("Blower & Valve Actuator")
-                Layout.fillWidth: true
-
-                ColumnLayout {
-                    spacing: ScreenTools.defaultFontPixelHeight / 4
-                    width: parent.width
-
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "BLWR_FLOW")
-                    }
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "VALVE_HYST")
-                    }
-                    LabelledFactTextField {
-                        Layout.fillWidth: true
-                        fact: controller.getParameterFact(-1, "VALVE_MIN_T")
+                        fact: controller.getParameterFact(-1, "BALLOON_OUT_EN")
                     }
                 }
             }

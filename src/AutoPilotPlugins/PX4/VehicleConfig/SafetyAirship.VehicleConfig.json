@@ -2,9 +2,6 @@
     "fileType": "VehicleConfig",
     "version": 1,
     "constants": {
-        "_rtlLandDelayParamValueLandImmediately": 0,
-        "_rtlLandDelayParamValueLoiterIndefinitely": -1,
-        "_rtlLandDelayParamValueLoiterDefault": 60
     },
     "params": {
         "_fenceRadius": {
@@ -17,10 +14,6 @@
         },
         "_disarmLandDelay": {
             "name": "COM_DISARM_LAND",
-            "required": true
-        },
-        "_rtlLandDelay": {
-            "name": "RTL_LAND_DELAY",
             "required": true
         }
     },
@@ -173,7 +166,7 @@
                 "ballast",
                 "blower",
                 "valve",
-                "trim"
+                "emergency"
             ],
             "image": "/qmlimages/GeoFence.svg",
             "controls": [
@@ -191,8 +184,8 @@
                     "label": "Altitude deadzone"
                 },
                 {
-                    "param": "TRIM_BALLOON_EN",
-                    "label": "Left-right trim enabled",
+                    "param": "BALLOON_EMG_EN",
+                    "label": "Failsafe emergency venting",
                     "control": "combobox"
                 }
             ]

@@ -11,21 +11,23 @@
       <output name="Motor3">tail thruster</output>
       <output name="Servo1">thrust tilt</output>
     </airframe>
-    <airframe name="Lingyun01" id="4022" maintainer="Lingyun Realm Aviation &lt;dev@lingyun-aero.com&gt;">
+    <!-- V2 布局（05_hardware.md §4.1）: 4上升(MAIN1-4) + 2下降(MAIN5-6) + 4推进(MAIN7-10, 可反转);
+         浮力 4囊8通道走 PWM_AUX(Func 201-208), 不占用 MAIN。id 对应 PX4 2058_lingyun01。 -->
+    <airframe name="Lingyun01" id="2058" maintainer="Lingyun Realm Aviation &lt;dev@lingyun-aero.com&gt;">
       <class>Airship</class>
       <type>Airship</type>
-      <output name="Motor1">lift motor 0 (ccw)</output>
-      <output name="Motor2">lift motor 1 (cw)</output>
-      <output name="Motor3">lift motor 2 (cw)</output>
-      <output name="Motor4">lift motor 3 (ccw)</output>
-      <output name="Motor5">thrust motor 4 (ccw)</output>
-      <output name="Motor6">thrust motor 5 (cw)</output>
-      <output name="Motor7">thrust motor 6 (ccw)</output>
-      <output name="Motor8">thrust motor 7 (cw)</output>
-      <output name="Motor9">blower left</output>
-      <output name="Motor10">blower right</output>
-      <output name="Motor11">valve left</output>
-      <output name="Motor12">valve right</output>
+      <output name="Motor1">lift up motor 0 (left front)</output>
+      <output name="Motor2">lift up motor 1 (right front)</output>
+      <output name="Motor3">lift up motor 2 (left rear)</output>
+      <output name="Motor4">lift up motor 3 (right rear)</output>
+      <output name="Motor5">lift down motor 4 (front)</output>
+      <output name="Motor6">lift down motor 5 (rear)</output>
+      <output name="Motor7">propulsion motor 6 (left front, reversible)</output>
+      <output name="Motor8">propulsion motor 7 (right front, reversible)</output>
+      <output name="Motor9">propulsion motor 8 (left rear, reversible)</output>
+      <output name="Motor10">propulsion motor 9 (right rear, reversible)</output>
+      <output name="Servo1">ballast blower (4 balloons sync)</output>
+      <output name="Servo2">ballast valve (4 balloons sync, normally closed)</output>
     </airframe>
   </airframe_group>
   <airframe_group name="Autogyro" image="Autogyro">

@@ -156,6 +156,11 @@ ColumnLayout {
                         Layout.fillWidth: true
                         fact: controller.getParameterFact(-1, "AS_TAKEOFF_RAMP")
                     }
+                    // Climb 爬升限速（V2 新增，防大惯量超调，02_parameters.md §6）
+                    LabelledFactTextField {
+                        Layout.fillWidth: true
+                        fact: controller.getParameterFact(-1, "AS_TKF_VMAX")
+                    }
                 }
             }
 
