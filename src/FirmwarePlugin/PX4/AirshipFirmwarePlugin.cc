@@ -1,57 +1,61 @@
 #include "AirshipFirmwarePlugin.h"
 #include "Vehicle.h"
 
-// 飞艇飞行模式 custom_mode 值（与标准 PX4 的位域编码不同，使用简单的 0-8）
-// 注意：v2.0文档变更，Failsafe=7, Task=8（旧文档 Task=7 已作废）
-namespace AirshipCustomMode {
-    constexpr uint32_t MANUAL    = 0;
-    constexpr uint32_t STABLE    = 1;
-    constexpr uint32_t ALTITUDE  = 2;
-    constexpr uint32_t POSITION  = 3;
-    constexpr uint32_t OFFBOARD  = 4;
-    constexpr uint32_t TAKEOFF   = 5;
-    constexpr uint32_t LAND      = 6;
-    constexpr uint32_t FAILSAFE  = 7;
-    constexpr uint32_t TASK      = 8;
-}
-
+// PX4 端 custom_mode 由 get_px4_custom_mode(nav_state) 纯标准 PX4 位域生成
+// (main_mode << 16 | sub_mode << 24)，无飞艇特殊分支（03_interfaces.md §4）。
+// AirshipMode 内部枚举不出现在任何 MAVLink 消息中，QGC 必须按标准编码解析。
+//
+// 飞艇模式语义（04_modes.md / 06_qgc_dev_guide.md §1.2）：
+//   Manual/Stabilized/Altitude/Position/Offboard 一一对应标准模式；
+//   Takeoff = AUTO sub2, Land = AUTO sub6, Task = AUTO_MISSION；
+//   Failsafe 为 airship_att_control 内部态，不反映到 nav_state（QGC 收不到）；
+//   PropTest = ACRO（需 CA_AS_PT_EN=1，单侧推进测试）；
+//   Loiter/RTL 对飞艇均为 Altitude 原地悬停（RTL 不飞回 home）。
 AirshipFirmwarePlugin::AirshipFirmwarePlugin()
 {
     const QString manualFlightModeName     = tr("Manual");
     const QString stabilizedFlightModeName = tr("Stabilized");
+    const QString acroFlightModeName       = tr("Acro");
     const QString altCtlFlightModeName     = tr("Altitude");
     const QString posCtlFlightModeName     = tr("Position");
-    const QString offboardFlightModeName  = tr("Offboard");
+    const QString offboardFlightModeName   = tr("Offboard");
     const QString takeoffFlightModeName    = tr("Takeoff");
     const QString landFlightModeName       = tr("Land");
-    const QString failsafeFlightModeName   = tr("Failsafe");
+    const QString loiterFlightModeName     = tr("Loiter");
     const QString missionFlightModeName    = tr("Mission");
+    const QString rtlFlightModeName        = tr("RTL");
 
-    // 飞艇使用简化的 custom_mode 值（0-8），覆盖父类的标准 PX4 映射
     _setModeEnumToModeStringMapping({
-        { AirshipCustomMode::MANUAL,    manualFlightModeName     },
-        { AirshipCustomMode::STABLE,    stabilizedFlightModeName },
-        { AirshipCustomMode::ALTITUDE,  altCtlFlightModeName     },
-        { AirshipCustomMode::POSITION,  posCtlFlightModeName     },
-        { AirshipCustomMode::OFFBOARD,  offboardFlightModeName  },
-        { AirshipCustomMode::TAKEOFF,   takeoffFlightModeName    },
-        { AirshipCustomMode::LAND,      landFlightModeName       },
-        { AirshipCustomMode::FAILSAFE,  failsafeFlightModeName   },
-        { AirshipCustomMode::TASK,      missionFlightModeName    },
+        { PX4CustomMode::MANUAL,        manualFlightModeName     },
+        { PX4CustomMode::STABILIZED,    stabilizedFlightModeName },
+        { PX4CustomMode::ACRO,          acroFlightModeName       },
+        { PX4CustomMode::ALTCTL,        altCtlFlightModeName     },
+        { PX4CustomMode::POSCTL_POSCTL, posCtlFlightModeName     },
+        { PX4CustomMode::OFFBOARD,      offboardFlightModeName   },
+        { PX4CustomMode::AUTO_TAKEOFF,  takeoffFlightModeName    },
+        { PX4CustomMode::AUTO_LAND,     landFlightModeName       },
+        { PX4CustomMode::AUTO_LOITER,   loiterFlightModeName     },
+        { PX4CustomMode::AUTO_MISSION,  missionFlightModeName    },
+        { PX4CustomMode::AUTO_RTL,      rtlFlightModeName        },
     });
 
-    // 飞艇可设置的飞行模式列表（Failsafe 不可手动设置，由系统自动触发）
+    // 飞艇可设置模式列表（06_qgc_dev_guide.md §1.2 启用条件）：
+    //   Takeoff/Land 不可由模式列表切换（Takeoff 需 ARMED+完整 local_position，
+    //   Land 通过 MAV_CMD_NAV_LAND 命令触发且 force=true 总是可切入）。
+    //   RTL 保留可切换：飞艇 RTL = 原地定高悬停（链路恢复后的安全驻留）。
     static FlightModeList availableFlightModes = {
-        // Mode Name                  Custom Mode                       CanBeSet  adv
-        { manualFlightModeName,      AirshipCustomMode::MANUAL,        true,   false },
-        { stabilizedFlightModeName,  AirshipCustomMode::STABLE,        true,   false },
-        { altCtlFlightModeName,      AirshipCustomMode::ALTITUDE,      true,   false },
-        { posCtlFlightModeName,      AirshipCustomMode::POSITION,      true,   false },
-        { offboardFlightModeName,    AirshipCustomMode::OFFBOARD,      true,   false },
-        { takeoffFlightModeName,     AirshipCustomMode::TAKEOFF,       false,  false },
-        { landFlightModeName,        AirshipCustomMode::LAND,          false,  false },
-        { failsafeFlightModeName,    AirshipCustomMode::FAILSAFE,      false,  false },
-        { missionFlightModeName,     AirshipCustomMode::TASK,          true,   false },
+        // Mode Name                Custom Mode                       CanBeSet  adv
+        { manualFlightModeName,     PX4CustomMode::MANUAL,            true,   false },
+        { stabilizedFlightModeName, PX4CustomMode::STABILIZED,        true,   false },
+        { acroFlightModeName,       PX4CustomMode::ACRO,              true,   true  },
+        { altCtlFlightModeName,     PX4CustomMode::ALTCTL,            true,   false },
+        { posCtlFlightModeName,     PX4CustomMode::POSCTL_POSCTL,     true,   false },
+        { offboardFlightModeName,   PX4CustomMode::OFFBOARD,          true,   true  },
+        { takeoffFlightModeName,    PX4CustomMode::AUTO_TAKEOFF,      false,  false },
+        { landFlightModeName,       PX4CustomMode::AUTO_LAND,         false,  false },
+        { loiterFlightModeName,     PX4CustomMode::AUTO_LOITER,       true,   true  },
+        { missionFlightModeName,    PX4CustomMode::AUTO_MISSION,      true,   true  },
+        { rtlFlightModeName,        PX4CustomMode::AUTO_RTL,          true,   true  },
     };
 
     updateAvailableFlightModes(availableFlightModes);
@@ -59,83 +63,6 @@ AirshipFirmwarePlugin::AirshipFirmwarePlugin()
 
 AirshipFirmwarePlugin::~AirshipFirmwarePlugin()
 {
-}
-
-QStringList AirshipFirmwarePlugin::flightModes(Vehicle* vehicle) const
-{
-    Q_UNUSED(vehicle);
-
-    QStringList flightModesList;
-    for (auto &mode : _flightModeList) {
-        if (mode.canBeSet) {
-            flightModesList += mode.mode_name;
-        }
-    }
-
-    return flightModesList;
-}
-
-QString AirshipFirmwarePlugin::flightMode(uint8_t base_mode, uint32_t custom_mode) const
-{
-    if (base_mode & MAV_MODE_FLAG_CUSTOM_MODE_ENABLED) {
-        return _modeEnumToString.value(custom_mode, tr("Unknown %1:%2").arg(base_mode).arg(custom_mode));
-    }
-
-    return QStringLiteral("Unknown");
-}
-
-bool AirshipFirmwarePlugin::setFlightMode(const QString& flightMode, uint8_t* base_mode, uint32_t* custom_mode) const
-{
-    *base_mode = 0;
-    *custom_mode = 0;
-
-    bool found = false;
-
-    for (auto &mode : _flightModeList) {
-        if (flightMode.compare(mode.mode_name, Qt::CaseInsensitive) == 0) {
-            *base_mode = MAV_MODE_FLAG_CUSTOM_MODE_ENABLED;
-            *custom_mode = mode.custom_mode;
-            found = true;
-            break;
-        }
-    }
-
-    return found;
-}
-
-QString AirshipFirmwarePlugin::pauseFlightMode() const
-{
-    return _modeEnumToString.value(AirshipCustomMode::POSITION);
-}
-
-QString AirshipFirmwarePlugin::missionFlightMode() const
-{
-    return _modeEnumToString.value(AirshipCustomMode::TASK);
-}
-
-QString AirshipFirmwarePlugin::landFlightMode() const
-{
-    return _modeEnumToString.value(AirshipCustomMode::LAND);
-}
-
-QString AirshipFirmwarePlugin::takeOffFlightMode() const
-{
-    return _modeEnumToString.value(AirshipCustomMode::TAKEOFF);
-}
-
-QString AirshipFirmwarePlugin::takeControlFlightMode() const
-{
-    return _modeEnumToString.value(AirshipCustomMode::MANUAL);
-}
-
-QString AirshipFirmwarePlugin::gotoFlightMode() const
-{
-    return _modeEnumToString.value(AirshipCustomMode::POSITION);
-}
-
-QString AirshipFirmwarePlugin::stabilizedFlightMode() const
-{
-    return _modeEnumToString.value(AirshipCustomMode::STABLE);
 }
 
 QString AirshipFirmwarePlugin::missionCommandOverrides(QGCMAVLink::VehicleClass_t vehicleClass) const

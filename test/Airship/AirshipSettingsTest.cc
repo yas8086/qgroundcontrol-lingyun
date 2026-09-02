@@ -5,6 +5,7 @@
 
 #include "Fact.h"
 #include "FactValueGrid.h"
+#include "FirmwarePlugin.h"
 #include "FlyViewSettings.h"
 #include "MockLink.h"
 #include "MultiVehicleManager.h"
@@ -48,6 +49,22 @@ void AirshipSettingsTest::_airshipShowTelemetryBar_default_test()
     QCOMPARE(fact->rawValue().toBool(), true);
 }
 
+void AirshipSettingsTest::_airshipShowTelemetryBar_readWrite_test()
+{
+    FlyViewSettings *flyView = SettingsManager::instance()->flyViewSettings();
+    QVERIFY(flyView);
+    Fact *fact = flyView->airshipShowTelemetryBar();
+    QVERIFY(fact);
+
+    const bool original = fact->rawValue().toBool();
+    fact->setRawValue(!original);
+    QCOMPARE(fact->rawValue().toBool(), !original);
+
+    // 恢复原值
+    fact->setRawValue(original);
+    QCOMPARE(fact->rawValue().toBool(), original);
+}
+
 void AirshipSettingsTest::_airshipInstrumentPageCount_readWrite_test()
 {
     FlyViewSettings *flyView = SettingsManager::instance()->flyViewSettings();
@@ -64,22 +81,6 @@ void AirshipSettingsTest::_airshipInstrumentPageCount_readWrite_test()
     // 恢复原值，避免影响其他测试
     fact->setRawValue(original);
     QCOMPARE(fact->rawValue().toUInt(), original);
-}
-
-void AirshipSettingsTest::_airshipShowTelemetryBar_readWrite_test()
-{
-    FlyViewSettings *flyView = SettingsManager::instance()->flyViewSettings();
-    QVERIFY(flyView);
-    Fact *fact = flyView->airshipShowTelemetryBar();
-    QVERIFY(fact);
-
-    const bool original = fact->rawValue().toBool();
-    fact->setRawValue(!original);
-    QCOMPARE(fact->rawValue().toBool(), !original);
-
-    // 恢复原值
-    fact->setRawValue(original);
-    QCOMPARE(fact->rawValue().toBool(), original);
 }
 
 void AirshipSettingsTest::_resetToDefaults_removesVehicleClassGroup_test()
@@ -122,6 +123,44 @@ void AirshipSettingsTest::_resetToDefaults_removesVehicleClassGroup_test()
              "resetToDefaults() must remove the vehicleClass-suffixed QSettings group");
 
     // 断开 MockLink，清理 vehicle。
+    link->disconnect();
+    QVERIFY(UnitTest::waitForSignal(spyVehicle, TestTimeout::longMs(), QStringLiteral("activeVehicleChanged")));
+}
+
+void AirshipSettingsTest::_mockLinkFlightMode_test()
+{
+    // 验证纯连接（不发送任何命令）下飞艇 MockLink 的模式链路：
+    // heartbeat custom_mode = PX4CustomMode::MANUAL（标准位域编码）
+    // → AirshipFirmwarePlugin 查表 → "Manual"。
+    // 若此测试失败，说明 MockLink 初始化或插件模式映射有回归。
+    MultiVehicleManager::instance()->init();
+
+    QSignalSpy spyVehicle(MultiVehicleManager::instance(), &MultiVehicleManager::activeVehicleChanged);
+    QVERIFY(spyVehicle.isValid());
+    MockLink *link = MockLink::startAirshipMockLink(false, false, false);
+    QVERIFY(link);
+    QVERIFY(UnitTest::waitForSignal(spyVehicle, TestTimeout::longMs(), QStringLiteral("activeVehicleChanged")));
+    Vehicle *vehicle = MultiVehicleManager::instance()->activeVehicle();
+    QVERIFY(vehicle);
+    QCOMPARE(vehicle->vehicleType(), MAV_TYPE_AIRSHIP);
+
+    QCOMPARE(vehicle->flightMode(), QStringLiteral("Manual"));
+
+    // 模式名称 ↔ 标准位域编码 双向解析（Takeoff=AUTO sub2、Land=AUTO sub6、Acro=PropTest）
+    auto *plugin = vehicle->firmwarePlugin();
+    QVERIFY(plugin);
+    uint8_t base_mode = 0;
+    uint32_t custom_mode = 0;
+    const QStringList modeNames = { QStringLiteral("Manual"), QStringLiteral("Position"),
+                                    QStringLiteral("Acro"), QStringLiteral("Takeoff"),
+                                    QStringLiteral("Land"), QStringLiteral("Mission"),
+                                    QStringLiteral("Loiter"), QStringLiteral("RTL") };
+    for (const QString &name : modeNames) {
+        QVERIFY2(plugin->setFlightMode(name, &base_mode, &custom_mode), qPrintable(name));
+        const QString roundTrip = plugin->flightMode(base_mode, custom_mode);
+        QVERIFY2(roundTrip == name, qPrintable(QStringLiteral("%1 -> %2").arg(name, roundTrip)));
+    }
+
     link->disconnect();
     QVERIFY(UnitTest::waitForSignal(spyVehicle, TestTimeout::longMs(), QStringLiteral("activeVehicleChanged")));
 }

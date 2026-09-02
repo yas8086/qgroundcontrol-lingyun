@@ -115,9 +115,10 @@ MockLink::MockLink(SharedLinkConfigurationPtr &config, QObject *parent)
 
     _loadParams();
 
-    // 飞艇使用简化的 custom_mode（0-7），将初始模式设置为 Manual(0)
+    // 飞艇 custom_mode 为标准 PX4 位域编码（03_interfaces.md §4），
+    // 初始模式 Manual = PX4_CUSTOM_MAIN_MODE_MANUAL << 16。
     if (_vehicleType == MAV_TYPE_AIRSHIP) {
-        _mavCustomMode = 0;
+        _mavCustomMode = PX4CustomMode::MANUAL;
     }
 
     _runningTime.start();

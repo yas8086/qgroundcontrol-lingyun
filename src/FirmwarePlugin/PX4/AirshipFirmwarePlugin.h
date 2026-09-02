@@ -5,18 +5,19 @@
 /**
  * @brief 飞艇专用固件插件
  *
- * 灵云01号飞艇使用简化的 custom_mode 值（0-7），与标准 PX4 的位域编码不同。
- * 此插件重写飞行模式映射，使 QGC 能正确识别和切换飞艇的 8 种飞行模式。
+ * 灵云01号飞艇的 custom_mode 由 PX4 get_px4_custom_mode() 纯标准位域生成
+ * (main_mode << 16 | sub_mode << 24)，与标准 PX4 一致（03_interfaces.md §4）。
+ * 本插件仅注入飞艇模式的名称映射与可设置模式列表：
+ *   Manual / Stabilized / Acro(PropTest) / Altitude / Position / Offboard /
+ *   Takeoff(AUTO sub2) / Land(AUTO sub6) / Loiter / Mission / RTL
+ * 其余行为（模式解析、切换、pause/land/rtl 等虚函数）复用父类实现，
+ * 通过 _modeEnumToString 查表自动生效。
  *
- * 飞艇飞行模式映射：
- *   0 - Manual    手动模式
- *   1 - Stable    自稳定模式
- *   2 - Altitude  定高模式
- *   3 - Position   定点模式
- *   4 - Offboard   外部控制模式
- *   5 - Takeoff    起飞模式
- *   6 - Land       降落模式
- *   7 - Task       任务模式
+ * 飞艇语义差异（04_modes.md）：
+ *   - RTL = 原地定高悬停（不飞回 home）
+ *   - Loiter = Altitude 悬停
+ *   - Failsafe 为飞控内部态，不反映到 nav_state（QGC 不可见）
+ *   - 起飞完成自动切 Loiter、Land 到 3m 自动 DISARM 属正常行为
  */
 class AirshipFirmwarePlugin : public PX4FirmwarePlugin
 {
@@ -26,23 +27,9 @@ public:
     AirshipFirmwarePlugin();
     ~AirshipFirmwarePlugin();
 
-    // 飞行模式映射
-    QStringList flightModes(Vehicle* vehicle) const override;
-    QString flightMode(uint8_t base_mode, uint32_t custom_mode) const override;
-    bool setFlightMode(const QString& flightMode, uint8_t* base_mode, uint32_t* custom_mode) const override;
-
     // 任务命令覆盖 - 飞艇专用任务规划
     QString missionCommandOverrides(QGCMAVLink::VehicleClass_t vehicleClass) const override;
 
     // 工具栏扩展指示器 - 飞艇专用状态显示
     QVariant expandedToolbarIndicatorSource(const Vehicle* vehicle, const QString& indicatorName) const override;
-
-    // 飞行模式名称
-    QString pauseFlightMode() const override;
-    QString missionFlightMode() const override;
-    QString landFlightMode() const override;
-    QString takeOffFlightMode() const override;
-    QString takeControlFlightMode() const override;
-    QString gotoFlightMode() const override;
-    QString stabilizedFlightMode() const override;
 };

@@ -29,4 +29,6 @@ private slots:
     // P0 幽灵配置回归：resetToDefaults() 必须删除带 vehicleClass 后缀的
     // QSettings group（"_settingsKey()"），而非不带后缀的 _settingsGroup。
     void _resetToDefaults_removesVehicleClassGroup_test();
+    // 纯连接（无任何操作）后飞艇 MockLink 的模式显示必须为 Manual（标准编码解析验证）
+    void _mockLinkFlightMode_test();
 };
