@@ -1,441 +1,241 @@
 # 02 - 完整参数表
 
-**参数来源**:
-- **代码默认值**: `src/modules/airship_att_control/airship_att_control_params.c` 和 `src/modules/ballast_control/ballast_control_params.c`
-- **[仿真]值**: `ROMFS/px4fmu_common/init.d/rc.lingyun01_defaults` (仿真调好的值)
-- **[实飞首飞]值**: `ROMFS/px4fmu_common/init.d/airframes/2058_lingyun01` (实飞首飞保守值,PID减半)
+**文档版本**: 3.0 (基于2026-08-30全量代码分析, V2架构)
+**最后更新**: 2026-08-30
+
+**参数来源与覆盖顺序** (实际生效值 = 低优先级被高优先级覆盖):
+1. **代码默认值**: `src/modules/airship_att_control/airship_att_control_params.c`、`src/modules/ballast_control/ballast_control_params.c`、`src/modules/control_allocator/control_allocator_params_airship.c`
+2. **[仿真]值**: `ROMFS/px4fmu_common/init.d/rc.lingyun01_defaults` (set-default)
+3. **[实飞首飞]值**: `ROMFS/px4fmu_common/init.d/airframes/2058_lingyun01` (set-default或param set, 优先级最高)
 
 **QGC参数显示规则**:
-- 实际生效值 = 代码默认值 ← rc.lingyun01_defaults覆盖 ← 2058_lingyun01再次覆盖
-- QGC通过 MAVLink `PARAM_VALUE` 消息接收实际生效值
-- QGC修改参数时发送 `PARAM_SET` 消息
-- 所有 `AS_*` 和 `BALLOON_*/BLOWER_*/VALVE_*/TRIM_BALLOON_*` 参数都会出现在QGC参数列表
+- QGC通过 MAVLink `PARAM_VALUE` 接收实际生效值, `PARAM_SET` 修改
+- 所有 `AS_*`、`BALLOON_*`、`CA_AS_*`、`LNDAS_*` 参数都会出现在QGC参数列表
+- 参数分组通过 `@group` 标签: "Airship Attitude Control" / "Ballast Control" / "Control Allocation"
 
 ---
 
-## 1. 高度PID参数 (AS_ALT_*)
+## 1. 高度PID参数 (AS_ALT_*) @group: Airship Attitude Control
 
 | 参数名 | 代码默认 | [仿真]值 | [实飞首飞]值 | 单位 | 说明 |
 |--------|---------|---------|--------------|------|------|
-| AS_ALT_P | 0.3 | 0.3 | **0.15** | - | 高度比例增益 |
-| AS_ALT_I | 0.02 | 0.02 | **0.01** | - | 高度积分增益 |
-| AS_ALT_D | 3.0 | 3.0 | **1.5** | - | 高度微分增益(垂直速度阻尼) |
-| AS_ALT_IMAX | 0.5 | 0.5 | **0.25** | - | 积分限幅 |
-| AS_ALT_VMAX | 2.0 | 2.0 | **1.0** | m/s | 最大升降速度 |
-| AS_ALT_VFF | 0.5 | 0.5 | **0.25** | - | 速度前馈增益 |
-| AS_ALT_MAX | 150.0 | 150.0 | 150.0 | m AGL | 高度硬限位(防超压) |
-| AS_ALT_MIN | 2.0 | 2.0 | 2.0 | m AGL | 高度硬限位(防撞地) |
-| AS_ALT_SOFT | 140.0 | 140.0 | 140.0 | m AGL | 高度软限位预减速起始 |
-| AS_ALT_SRATE | 2.0 | 2.0 | **1.0** | m/s | 摇杆高度调整速率 |
+| AS_ALT_P | 0.3 | 0.3 | 0.15 | - | 高度→目标速度 P增益 |
+| AS_ALT_I | 0.02 | 0.02 | 0.01 | - | 速度环积分增益 |
+| AS_ALT_D | 3.0 | 3.0 | 1.5 | - | 速度环P增益(命名历史遗留, 实为速度P) |
+| AS_ALT_IMAX | 0.5 | 0.5 | 0.25 | - | 积分限幅 |
+| AS_ALT_VMAX | 2.0 | 2.0 | 1.0 | m/s | 最大升降速度 |
+| AS_ALT_VFF | 0.5 | 0.5 | 0.25 | - | 速度前馈(中性浮力稳态速度需持续推力) |
+| AS_ALT_MAX | 150.0 | 150.0 | 150.0 | m AGL | 高度硬上限(防气囊超压, 0=禁用) |
+| AS_ALT_MIN | 2.0 | 2.0 | 2.0 | m AGL | 高度硬下限(V6修复: 触发时目标=当前高度悬浮, 非强制抬升) |
+| AS_ALT_SOFT | 140.0 | 140.0 | 140.0 | m AGL | 软限位: 速度线性预减速+推力截断(仅限上升方向) |
+| AS_ALT_SRATE | 2.0 | 2.0 | 1.0 | m/s | 摇杆高度调整速率 |
 
-@group: Airship Attitude Control
-
----
-
-## 2. 俯仰PID参数 (AS_PIT_*, AS_PR_*)
+## 2. 俯仰PID参数 @group: Airship Attitude Control
 
 | 参数名 | 代码默认 | [仿真]值 | [实飞首飞]值 | 单位 | 说明 |
 |--------|---------|---------|--------------|------|------|
-| AS_PIT_P | 6.0 | 6.0 | **3.0** | - | 俯仰角比例增益(外环) |
-| AS_PIT_I | 0.15 | 0.15 | **0.08** | - | 俯仰角积分增益 |
-| AS_PIT_IMAX | 0.3 | 0.3 | **0.15** | - | 积分限幅 |
-| AS_PR_P | 2.0 | 2.0 | **1.0** | - | 俯仰角速率比例(内环) |
-| AS_PR_I | 0.5 | 0.5 | **0.25** | - | 俯仰角速率积分 |
-| AS_PR_D | 0.5 | 0.5 | **0.25** | - | 俯仰角速率微分 |
-| AS_PR_IMAX | 0.5 | 0.5 | **0.25** | - | 积分限幅 |
-| AS_PIT_RMAX | 0.349 | 0.349 | 0.349 | rad/s | 最大俯仰角速度(20°/s) |
-| AS_PIT_FF | 1.0 | 1.0 | **0.5** | - | 推进俯仰耦合前馈 |
+| AS_PIT_P | 6.0 | 6.0 | 3.0 | - | 俯仰角外环P(输出±4 rad/s) |
+| AS_PIT_I | 0.15 | 0.15 | 0.08 | - | 俯仰角外环I |
+| AS_PIT_IMAX | 0.3 | 0.3 | 0.15 | - | 外环积分限幅 |
+| AS_PR_P | 2.0 | 2.0 | 1.0 | - | 俯仰角速率内环P(输出±3) |
+| AS_PR_I | 0.5 | 0.5 | 0.25 | - | 内环I |
+| AS_PR_D | 0.5 | 0.5 | 0.25 | - | 内环D(纯阻尼) |
+| AS_PR_IMAX | 0.5 | 0.5 | 0.25 | - | 内环积分限幅 |
+| AS_PIT_RMAX | 0.349 | 0.349 | 0.349 | rad/s | 摇杆最大俯仰角速度(20°/s) |
+| AS_PIT_FF | 1.0 | 1.0 | 0.5 | - | 推进俯仰耦合前馈: pitch_p_eff = PIT_P + FF*thrust_x滤波 |
 
-@group: Airship Attitude Control
+**附加补偿(代码内实现, 无参数)**:
+- Munk力矩前馈: `munk_y = 600*vx_body*vz_body`, `ff = -0.8*munk/3975`, 限幅±6
+- 俯仰-速度保护: 俯仰误差>10°时线性限制前进推力(30°时归零)
 
-**调参说明**:
-- 仿真值已针对大惯量(Iyy=112200)调好,对抗Munk力矩
-- 实飞首飞P和D增益减半,首飞后根据响应逐步调整
-- AS_PIT_FF 通过增益调度: `pitch_p_effective = AS_PIT_P + AS_PIT_FF * thrust_x_filtered`
-
----
-
-## 3. 偏航PID参数 (AS_YAW_*, AS_YR_*)
+## 3. 偏航PID参数 @group: Airship Attitude Control
 
 | 参数名 | 代码默认 | [仿真]值 | [实飞首飞]值 | 单位 | 说明 |
 |--------|---------|---------|--------------|------|------|
-| AS_YAW_P | 1.0 | 1.0 | **0.5** | - | 偏航角比例增益(外环) |
-| AS_YAW_I | 0.05 | 0.05 | **0.03** | - | 偏航角积分增益 |
-| AS_YAW_IMAX | 0.2 | 0.2 | **0.1** | - | 积分限幅 |
-| AS_YR_P | 0.5 | **2.0** | **0.25** | - | 偏航角速率比例(内环) |
-| AS_YR_I | 0.5 | 0.5 | **0.25** | - | 偏航角速率积分 |
-| AS_YR_D | 0.0 | 0.0 | 0.0 | - | 偏航角速率微分 |
-| AS_YR_IMAX | 0.2 | 0.2 | **0.1** | - | 积分限幅 |
-| AS_YAW_RMAX | 0.524 | 0.524 | 0.524 | rad/s | 最大偏航角速度(30°/s) |
-| AS_YAW_TMAX | 0.3 | **0.5** | **0.2** | - | 最大偏航扭矩 |
+| AS_YAW_P | 1.0 | 1.0 | 0.5 | - | 偏航角外环P(输出±2 rad/s) |
+| AS_YAW_I | 0.05 | 0.05 | 0.03 | - | 外环I |
+| AS_YAW_IMAX | 0.2 | 0.2 | 0.1 | - | 外环积分限幅 |
+| AS_YR_P | 1.0 | **2.0** | 0.25 | - | 偏航角速率内环P(输出±yaw_torque_max) |
+| AS_YR_I | 0.5 | 0.5 | 0.25 | - | 内环I |
+| AS_YR_D | 0.0 | 0.0 | 0.0 | - | 内环D |
+| AS_YR_IMAX | 0.2 | 0.2 | 0.1 | - | 内环积分限幅 |
+| AS_YAW_RMAX | 0.524 | 0.524 | 0.524 | rad/s | 摇杆最大偏航角速度(30°/s) |
+| AS_YAW_TMAX | 0.8 | **0.8** | 0.2 | - | 最大偏航力矩(V5回退: 0.8配合PROP_MAX=0.6为性能拐点) |
 
-@group: Airship Attitude Control
+## 4. 横滚PID参数 (V2新增, Roll闭环) @group: Airship Attitude Control
 
-**调参说明**:
-- 仿真值AS_YR_P从0.5升到2.0,让torque_z快速饱和到AS_YAW_TMAX=0.5
-- 实飞首飞保守值AS_YR_P=0.25, AS_YAW_TMAX=0.2
-- 偏航受气动力矩物理限制,推进电机差动主要产生侧向位移,大角度转向需S形
+| 参数名 | 代码默认 | 单位 | 说明 |
+|--------|---------|------|------|
+| AS_ROLL_P | 1.0 | - | 横滚角外环P(输出±2 rad/s) |
+| AS_ROLL_I | 0.05 | - | 外环I |
+| AS_ROLL_IMAX | 0.3 | - | 外环积分限幅 |
+| AS_RR_P | 0.5 | - | 横滚角速率内环P(输出±1) |
+| AS_RR_I | 0.1 | - | 内环I |
+| AS_RR_D | 0.1 | - | 内环D |
+| AS_RR_IMAX | 0.2 | - | 内环积分限幅 |
+| AS_ROLL_RMAX | 0.349 | rad/s | 摇杆最大横滚角速度 |
 
----
+**注意**: 横滚目标恒为0(回水平), 由上升电机(0-3)左右差动实现, 力臂PY≈6.34m。
 
-## 4. 位置/速度PID参数 (AS_VEL_*, AS_POS_*)
-
-| 参数名 | 代码默认 | [仿真]值 | [实飞首飞]值 | 单位 | 说明 |
-|--------|---------|---------|--------------|------|------|
-| AS_VEL_XY_P | 0.5 | 0.5 | **0.25** | - | 水平速度P增益 |
-| AS_VEL_XY_I | 0.02 | 0.02 | **0.01** | - | 水平速度I增益 |
-| AS_VEL_XY_D | 0.1 | 0.1 | **0.05** | - | 水平速度D增益 |
-| AS_VEL_XY_IMAX | 1.0 | 1.0 | **0.5** | - | 速度积分限幅 |
-| AS_VEL_XY_MAX | 15.0 | 15.0 | **10.0** | m/s | 最大水平速度 |
-| AS_POS_XY_P | 0.3 | 0.3 | **0.15** | - | 位置P增益 |
-| AS_POS_XY_MAX | 30.0 | 30.0 | **15.0** | m | 最大位置误差 |
-
-@group: Airship Attitude Control
-
----
-
-## 5. 起飞参数 (AS_TAKEOFF_*, AS_TKF_*)
+## 5. 位置/速度PID参数 (Position模式) @group: Airship Attitude Control
 
 | 参数名 | 代码默认 | [仿真]值 | [实飞首飞]值 | 单位 | 说明 |
 |--------|---------|---------|--------------|------|------|
-| AS_TAKEOFF_ALT | 20.0 | 20.0 | 20.0 | m AGL | 起飞目标高度 |
-| AS_TKF_HOLD_T | 20.0 | 20.0 | 20.0 | s | Hold阶段保持时间 |
-| AS_TKF_ALT_TOL | 2.0 | 2.0 | 2.0 | m | Hold阶段高度容差 |
-| AS_TAKEOFF_RAMP | 5.0 | 5.0 | 5.0 | s | 软启动渐增时间 |
+| AS_POS_XY_P | 0.05 | 0.05 | 0.05 | - | 位置P增益(误差→速度) |
+| AS_VEL_XY_P | 0.8 | 0.8 | 0.25 | - | L1视线导引速度P |
+| AS_VEL_XY_I | 0.02 | 0.02 | 0.01 | - | 速度I |
+| AS_VEL_XY_D | 2.0 | 2.0 | 0.05 | - | 速度D(阻尼) |
+| AS_VEL_XY_IMAX | 1.0 | 1.0 | 0.5 | - | 积分限幅 |
+| AS_VEL_XY_MAX | 2.0 | 2.0 | 2.0 | m/s | 最大水平速度(超LOS分量→停推保护) |
+| AS_POS_XY_MAX | 30.0 | 30.0 | 15.0 | m | 位置误差限幅 |
 
-@group: Airship Attitude Control
+**Position模式算法要点**: 误差>0.5m时yaw_setpoint=atan2指向目标; L1导引 `l1_weight=max(cos(yaw_err),0)` 边转边逼近; 停推保护仅判沿目标方向速度分量(风漂移不触发)。
 
-**起飞逻辑**:
-1. 前置条件: ARMED + 高度 < AS_TAKEOFF_ALT
-2. Climb阶段: 升力电机垂直爬升,推进电机关闭,AS_TAKEOFF_RAMP软启动
-3. Hold阶段: 到达目标高度后保持AS_TKF_HOLD_T秒,容差AS_TKF_ALT_TOL
-4. 自动切换: Hold完成后切换到Altitude模式悬停
+## 6. 起飞参数 @group: Airship Attitude Control
 
----
+| 参数名 | 代码默认 | 单位 | 说明 |
+|--------|---------|------|------|
+| AS_TAKEOFF_ALT | 20.0 | m AGL | 起飞目标高度(绝对AGL, V3修复非相对量) |
+| AS_TKF_HOLD_T | 20.0 | s | Hold阶段保持时间 |
+| AS_TKF_ALT_TOL | 2.0 | m | Hold高度容差(超差重置计时) |
+| AS_TAKEOFF_RAMP | 5.0 | s | Climb软启动时间(推力线性爬升) |
+| AS_TKF_VMAX | 0.5 | m/s | Climb爬升限速(V2新增, 防大惯量超调) |
 
-## 6. 降落参数 (AS_LND_*)
+**起飞状态机**: Settle(0-5s保持当前高度) → Climb(软启动+限速爬升) → Hold(±2m内连续20s) → Complete(自动发DO_SET_MODE切LOITER)。
+前置条件: ARMED + `alt_agl < AS_TAKEOFF_ALT`(否则PX4_WARN拒绝, 保持Altitude悬停)。
 
-| 参数名 | 代码默认 | [仿真]值 | [实飞首飞]值 | 单位 | 说明 |
-|--------|---------|---------|--------------|------|------|
-| AS_LND_DONE_ALT | 3.0 | 3.0 | 3.0 | m AGL | 降落完成高度 |
-| AS_LND_VHI | 1.5 | 1.5 | 1.5 | m/s | 高空(alt>10m)下降速度 |
-| AS_LND_VMID | 1.0 | 1.0 | 1.0 | m/s | 中空(5m<alt<=10m)下降速度 |
-| AS_LND_VLO | 0.5 | 0.5 | 0.5 | m/s | 低空(2m<alt<=5m)下降速度 |
-| AS_LND_VGND | 0.2 | 0.2 | 0.2 | m/s | 接地(alt<=2m)下降速度 |
+## 7. 降落参数 @group: Airship Attitude Control
 
-@group: Airship Attitude Control
+| 参数名 | 代码默认 | 单位 | 说明 |
+|--------|---------|------|------|
+| AS_LND_DONE_ALT | 3.0 | m AGL | 降落完成高度(到达后自动强制DISARM) |
+| AS_LND_VHI | 1.5 | m/s | >10m下降速度 |
+| AS_LND_VMID | 1.0 | m/s | 5-10m下降速度 |
+| AS_LND_VLO | 0.5 | m/s | 2-5m下降速度 |
+| AS_LND_VGND | 0.2 | m/s | <2m下降速度 |
 
-**降落逻辑**:
-- 分阶段下降速度,接地时AS_LND_VGND=0.2m/s gentle touchdown
-- Done状态判断: 仅使用 `alt_agl <= AS_LND_DONE_ALT`,不依赖landed条件
-- 降落到Done高度后自动disarm
+**降落实现**: 不用位置PID控高, 直接速度控制(`updateAltitudeVelocity`), 水平位置PID保持防漂移。Done判据仅用 `alt_agl <= AS_LND_DONE_ALT`, 不依赖landed标志。
 
----
+## 8. 自动测试/调参参数 @group: Airship Attitude Control
 
-## 7. 自动测试/调参参数 (AS_TST_*, AS_AT_*)
+| 参数名 | 代码默认 | 说明 |
+|--------|---------|------|
+| AS_TST_EN | 0 | 自动阶跃测试(解锁后: hold 5s→pitch+AS_TST_PIT 10s→hold→yaw+AS_TST_YAW 10s→hold) |
+| AS_TST_PIT | 10.0 deg | 俯仰阶跃幅值 |
+| AS_TST_YAW | 15.0 deg | 偏航阶跃幅值 |
+| AS_AT_EN | 0 | 继电反馈PID自整定(1=Pitch/2=Yaw/3=Altitude) |
+| AS_AT_AMP | 0.1 | 继电器幅值 |
+| AS_AT_DUR | 30.0 s | 整定时长(需≥2个振荡周期) |
 
-| 参数名 | 代码默认 | [仿真]值 | [实飞首飞]值 | 单位 | 说明 |
-|--------|---------|---------|--------------|------|------|
-| AS_TST_EN | 0 | 0 | 0 | - | 自动阶跃测试使能(0=禁用,1=启用) |
-| AS_TST_PIT | 10.0 | 10.0 | 10.0 | deg | 阶跃测试俯仰角 |
-| AS_TST_YAW | 15.0 | 15.0 | 15.0 | deg | 阶跃测试偏航角 |
-| AS_AT_EN | 0 | 0 | 0 | - | PID自整定使能(0=禁用,1=俯仰,2=偏航,3=高度) |
-| AS_AT_AMP | 0.1 | 0.1 | 0.1 | - | 继电器反馈振幅 |
-| AS_AT_DUR | 30.0 | 30.0 | 30.0 | s | 自整定持续时间 |
+**注意**: 自整定结果只打印到console(`[AT] COMPLETE: Tu/Ku/Kp/Ki/Kd`), 需手动写参数。
 
-@group: Airship Attitude Control
+## 9. 浮力控制参数 (ballast_control) @group: Ballast Control
 
-**测试流程**:
-- AS_TST_EN=1时: hold 5s → pitch +10deg 10s → hold 5s → yaw +15deg 10s → hold 5s
-- AS_AT_EN=1/2/3时: 应用继电器(bang-bang)输入,测量振荡,用Ziegler-Nichols计算PID增益,结果打印到console
+| 参数名 | 代码默认 | 单位 | 说明 |
+|--------|---------|------|------|
+| BALLOON_AST_EN | 1 | - | 启用浮力辅助控制 |
+| BALLOON_DEADZONE | 0.5 | m | 高度死区(\|err\|<0.5m不动作) |
+| BALLOON_THRSHLD | 2.0 | m | **死参数**(V2遗留: 定义+加载但Run()中零引用) |
+| BALLOON_P_GAIN | 0.8 | - | 高度PID P |
+| BALLOON_I_GAIN | 0.05 | - | 高度PID I |
+| BALLOON_D_GAIN | 0.2 | - | 高度PID D(误差低通alpha=0.1) |
+| BALLOON_I_MAX | 50.0 | - | 积分限幅 |
+| BALLOON_RATE_MAX | 20.0 | N/s | 净浮力指令变化率限制 |
+| BALLOON_M_MAX | 128.5 | kg | 单囊最大空气质量(净浮力限幅±500N硬编码) |
+| BLWR_FLOW | 0.102 | kg/s | 单囊风机充气流量(仿真机型覆盖为0.5加速) |
+| BALLOON_MIN_ON | 5.0 | s | 充/排气最小持续时长(modeGuard互锁防频繁启停) |
+| BALLOON_SWT_GD | 2.0 | s | 充/排切换死区(停止后需等2s, 防管道串压) |
+| BALLOON_EMG_EN | 1 | - | 启用failsafe紧急排气 |
+| VALVE_OPEN_DELAY | 0.5 | s | 阀门机械延迟模拟 |
+| VALVE_FLOW_MAX | 0.102 | kg/s | 阀门排气流量(孔口压差流动) |
+| BLOWER_TAU | 10.0 | s | 风机一阶惯性时间常数 |
 
----
+**已删除参数**: `TRIM_BALLOON_*` 全族(V2四囊同步架构, 气囊不参与横滚, 横滚由上升电机左右差动闭环)。QGC参数页不应再展示TRIM_BALLOON组。
 
-## 8. 浮力控制参数 (BALLOON_*, BLOWER_*, VALVE_*, TRIM_BALLOON_*)
+**安全逻辑**:
+- 近地保护: 目标AGL<1m时禁止充气(target_low_guard)
+- 紧急排气: `vehicle_status.failsafe` 或 自主检测(RC/GCS任一丢失超5s) → 强制排气
+- 超压告警: 压力>4.75kPa(95%) PX4_WARN, <4.0kPa滞回解除
+- 未解锁: 全零输出(风机停+阀断电常闭)
 
-@group: Ballast Control
+## 10. 浮力输出参数 (ballast_output) @group: Ballast Control
 
-| 参数名 | 代码默认 | [仿真]值 | [实飞首飞]值 | 单位 | 说明 |
-|--------|---------|---------|--------------|------|------|
-| BALLOON_AST_EN | 1 | **0** | 1 | - | 启用浮力辅助控制(仿真禁用,改用横滚主动控制) |
-| BALLOON_DEADZONE | 0.5 | 0.5 | 0.5 | m | 高度死区 |
-| BALLOON_THRSHLD | 2.0 | 2.0 | 2.0 | m | 鼓风机/阀门切换阈值 |
-| BALLOON_P_GAIN | 0.8 | 0.8 | 0.8 | - | 高度PID P |
-| BALLOON_I_GAIN | 0.05 | 0.05 | 0.05 | - | 高度PID I |
-| BALLOON_D_GAIN | 0.2 | 0.2 | 0.2 | - | 高度PID D |
-| BALLOON_I_MAX | 50.0 | 50.0 | 50.0 | - | 积分限幅 |
-| BLOWER_TAU | 10.0 | 10.0 | 10.0 | s | 鼓风机时间常数 |
-| VALVE_OPEN_DELAY | 0.5 | 0.5 | 0.5 | s | 阀门开启延迟 |
-| TRIM_BALLOON_EN | 1 | 1 | 1 | - | 启用左右浮力配平 |
-| TRIM_BALLOON_P | 0.1 | 0.1 | 0.1 | - | 配平P |
-| TRIM_BALLOON_I | 0.01 | 0.01 | 0.01 | - | 配平I |
-| TRIM_BALLOON_IMX | 10.0 | 10.0 | 10.0 | - | 配平积分限幅 |
-| BALLOON_RATE_MAX | 20.0 | 20.0 | 20.0 | N/s | 浮力调节最大速率 |
+| 参数名 | 代码默认 | 说明 |
+|--------|---------|------|
+| BALLOON_OUT_EN | 1 | 输出使能(还需ARMED+setpoint 1s内新鲜, 三重门控) |
 
-### 8.1 横滚控制参数 (BALLOON_R_*, BALLOON_RR_*, BLWR_*, VALVE_*)
-
-@group: Ballast Roll Control
-
-ballast_control 独立级联PID（角度外环P+I → 角速度内环P+D → 质量分配器 → 开关执行器），不依赖 att_control。
-
-**架构说明**:
-- 外环: 角度误差 → PID(P+I) → 目标角速度
-- 内环: 角速度误差 → PID(P+D) → 横滚力矩需求 [-1,1]
-- 质量分配器: 力矩需求 → 各气囊目标质量(外囊70%+内囊30%)
-- 开关执行器: 滞环控制风机/阀门开关
-
-**物理基础** (AirshipDynamics力矩公式):
-```
-momentX = g * (mLI*armInner + mLO*armOuter - mRI*armInner - mRO*armOuter)
-```
-- LI/LO: Y正方向(物理右侧), 质量增加产生正roll(右侧下沉)
-- RI/RO: Y负方向(物理左侧), 质量增加产生负roll(左侧下沉)
-
-| 参数名 | 代码默认 | [仿真]值 | [实飞首飞]值 | 单位 | 说明 |
-|--------|---------|---------|--------------|------|------|
-| BALLOON_R_EN | 1 | 1 | 1 | - | 启用横滚主动控制(四气囊浮力差) |
-| BALLOON_R_P | 1.0 | **2.0** | 1.0 | - | 横滚角度外环P增益 |
-| BALLOON_R_I | 0.05 | **0.1** | 0.05 | - | 横滚角度外环I增益 |
-| BALLOON_R_IMX | 0.3 | 0.3 | 0.3 | - | 横滚角度外环积分限幅 |
-| BALLOON_RR_P | 0.5 | **1.0** | 0.5 | - | 横滚角速度内环P增益 |
-| BALLOON_RR_D | 0.1 | 0.1 | 0.1 | - | 横滚角速度内环D增益 |
-| BALLOON_R_MAX | 0.5 | 0.5 | 0.5 | - | 横滚力矩需求限幅 |
-| BALLOON_M_MAX | 128.5 | 128.5 | 128.5 | kg | 单个空气囊最大空气质量(5kPa表压) |
-| BLWR_FLOW | 0.102 | **0.5** | 0.102 | kg/s | 风机空气质量流量(仿真加速) |
-| VALVE_HYST | 2.0 | **0.5** | 2.0 | kg | 阀门开关滞环(仿真加速) |
-| VALVE_MIN_T | 0.5 | 0.5 | 0.5 | s | 阀门/风机最小开启时间 |
-
-**调参说明**:
-- 仿真值已验证: 9项检查全部通过, 稳态横滚角 < 1deg
-- BLWR_FLOW和VALVE_HYST在仿真中放大以加速响应(实际风机流量0.102 kg/s)
-- 实飞首飞值使用代码默认值, 待实飞验证后调整
-- 当 BALLOON_R_EN=1 时, TRIM_BALLOON_EN 自动失效(代码互斥)
-
----
-
-## 9. 控制分配物理常数 (CA_AS_*)
-
-@group: Control Allocation
-
-| 参数名 | 值 | 单位 | 说明 |
-|--------|------|------|------|
-| CA_AS_K_LUP | 196.0 | N | 上升电机推力系数(M0/M3, 20kg级) |
-| CA_AS_K_LDN | 392.0 | N | 下降电机推力系数(M1/M2, 40kg级) |
-| CA_AS_K_PROP | 726.3 | N | 推进电机推力系数(M4-M7) |
-| CA_AS_PZ_PROP | 1.503 | m | 推进电机到重心垂直距离 |
-| CA_AS_PX_FRONT | 10.232 | m | 前部升力电机到重心水平距离 |
-| CA_AS_PX_REAR | 14.518 | m | 后部升力电机到重心水平距离 |
-
----
-
-## 10. 控制分配配置参数 (CA_*)
-
-@group: Control Allocation
+## 11. 控制分配参数 (CA_AS_* / CA_*) @group: Control Allocation
 
 | 参数名 | 值 | 说明 |
 |--------|------|------|
-| CA_AIRFRAME | 9 | Custom (支持X轴+Z轴混合推力) |
-| CA_ROTOR_COUNT | 8 | 8个电机(4升力+4推进) |
-| CA_METHOD | 0 | 控制分配方法 |
-| CA_SV_CS_COUNT | 0 | **新方案无舵机**: control_allocator不发布actuator_servos |
-| CA_R_REV | 255 | 所有电机可逆映射(bit0-7=1) |
+| CA_AIRFRAME | 9 | Custom |
+| CA_ROTOR_COUNT | 10 | 10电机(4上升+2下降+4推进) |
+| CA_METHOD | 0 | 分配方法 |
+| CA_SV_CS_COUNT | 0 | 无控制面; actuator_servos由ballast_output独占发布 |
+| CA_R_REV | 1023 (0x3FF) | 全部10电机可逆映射 |
+| CA_AS_K_LUP/LDN | 222.5/222.5 | 上升/下降推力系数(下降系数声明未用) |
+| CA_AS_K_PROP | 1352.4 | 推进推力系数 |
+| CA_AS_PZ_PROP | 0.878 m | 推进电机-重心垂直距 |
+| CA_AS_PX_FRONT/REAR | 7.557/9.843 m | 上升组前/后力臂 |
+| CA_AS_PROP_MAX | 0.6 | 推进最大油门 |
+| CA_AS_PT_EN/SIDE/THR | 0/0/0.3 | PropTest(ACRO模式单侧推进测试) |
+| CA_ROTOR0-9 PX/PY/PZ/AX/AY/AZ/CT/KM | 见05_hardware | FRD坐标, 与SDF一一对应 |
 
-**升力电机方向配置**:
-- M0/M3: `CA_ROTOR*_AZ=-1` (推力向上)
-- M1/M2: `CA_ROTOR*_AZ=+1` (推力向下)
+## 12. 位置/速度限制 (MPC_*, navigator复用)
 
----
+| 参数名 | [仿真]值 | [实飞首飞]值 | 单位 |
+|--------|---------|--------------|------|
+| MPC_Z_VEL_MAX_UP | 2.0 | 1.0 | m/s |
+| MPC_Z_VEL_MAX_DN | 1.5 | 0.8 | m/s |
+| MPC_XY_VEL_MAX | 20.0 | 10.0 | m/s |
+| MPC_XY_CRUISE | 12.0 | 6.0 | m/s |
+| MPC_ACC_HOR_MAX | 1.5 | 0.8 | m/s² |
+| MPC_THR_HOVER | 0.0 | 0.0 | -(中性浮力) |
+| MPC_MAN_TILT_MAX | 15.0 | 15.0 | deg |
 
-## 11. 位置/速度限制参数 (MPC_*)
+**注**: MIXER_FILE/MIXER_AIRMODE/MOT_NOUT 参数已在当前PX4版本移除, 不再使用。
 
-@group: Multicopter Position Control (飞艇复用)
-
-| 参数名 | [仿真]值 | [实飞首飞]值 | 单位 | 说明 |
-|--------|---------|--------------|------|------|
-| MPC_Z_VEL_MAX_UP | 2.0 | **1.0** | m/s | 最大上升速度 |
-| MPC_Z_VEL_MAX_DN | 1.5 | **0.8** | m/s | 最大下降速度 |
-| MPC_XY_VEL_MAX | 20.0 | **10.0** | m/s | 最大水平速度 |
-| MPC_XY_CRUISE | 12.0 | **6.0** | m/s | 巡航速度 |
-| MPC_ACC_HOR_MAX | 1.5 | **0.8** | m/s² | 最大水平加速度 |
-| MPC_ACC_DOWN_MAX | 0.5 | **0.3** | m/s² | 最大下降加速度 |
-| MPC_THR_MIN | 0.0 | 0.0 | - | 最小推力(中性浮力=0) |
-| MPC_THR_MAX | 1.0 | 1.0 | - | 最大推力 |
-| MPC_THR_HOVER | 0.0 | 0.0 | - | 悬停推力(中性浮力=0) |
-| MPC_MAN_TILT_MAX | 15.0 | 15.0 | deg | 最大俯仰角(气囊结构限制) |
-| MPC_MAN_Y_MAX | 30.0 | 30.0 | deg/s | 最大偏航速率 |
-
----
-
-## 12. 着陆检测参数 (LNDAS_*)
-
-@group: Land Detector
+## 13. 着陆检测参数 (LNDAS_*) @group: Land Detector
 
 | 参数名 | 值 | 单位 | 说明 |
 |--------|------|------|------|
 | LNDAS_XY_VEL_MAX | 0.5 | m/s | 水平速度阈值 |
 | LNDAS_Z_VEL_MAX | 0.3 | m/s | 垂直速度阈值 |
-| LNDAS_ROT_MAX | 3.0 | deg/s | 旋转速度阈值 |
-| LNDAS_GND_PROX | 1.0 | m | 地面接近距离 |
-| LNDAS_GND_ALT | 1.0 | m | 地面高度 |
-| LNDAS_TOUCH_DIST | 0.3 | m | 接触距离 |
+| LNDAS_ROT_MAX | 3.0 | deg/s | **三轴角速度范数**阈值(V2修复: 含yaw) |
+| LNDAS_GND_PROX | 1.0 | m | 近地判定(测距仪) — **2026-08-30固件裁剪后无测距仪驱动, 此参数失效** |
+| LNDAS_GND_ALT | 1.0 | m | 近地判定(无测距仪用-z) — 裁剪后此路径为主 |
+| LNDAS_TOUCH_DIST | 0.3 | m | 物理触地距离 — **裁剪后physically_touched_down恒false, 此参数无效** |
 
-**注意**: 飞艇悬停时 `landed=true` 是正确行为,EKF2 ZUPT/ZGUPT保持激活。
+**特性**: 飞艇 `landed=true` = "armed+无运动"(悬停常态), 物理触地由 physically_touched_down 单独区分; AUTO_LAND模式强制landed=true; 速度检测有1s新鲜度检查。
 
----
-
-## 13. 安全参数 (实飞)
+## 14. 安全/Failsafe参数
 
 | 参数名 | [仿真]值 | [实飞首飞]值 | 说明 |
 |--------|---------|--------------|------|
-| COM_ARM_WO_GPS | 1 | **0** | 仿真允许无GPS解锁,实飞必须GPS锁定 |
-| COM_LOW_BAT_ACT | 0 | **1** | 仿真禁用,实飞启用低电量自动降落 |
-| NAV_RCL_ACT | 0 | **3** | 仿真禁用,实飞RC丢失返航 |
-| NAV_DLL_ACT | 0 | **3** | 仿真禁用,实飞数据链丢失返航 |
-| COM_DL_LOSS_T | (默认) | **30.0** | 实飞数据链丢失超时(150km链路) |
-| COM_RC_LOSS_T | (默认) | **5.0** | 实飞RC丢失超时 |
-| COM_FAIL_ACT_T | 30 | 30 | failsafe动作超时 |
-| COM_DISARM_LAND | (默认) | **0** | 着陆后不自动disarm(中性浮力) |
-| COM_DISARM_PRFLT | (默认) | **0** | ARM后未起飞不disarm |
-| COM_RCL_EXCEPT | (默认) | **4** | RC丢失后保持Position模式 |
-| FD_FAIL_P | 0 | 0 | 禁用俯仰故障检测 |
-| FD_FAIL_R | 0 | 0 | 禁用横滚故障检测 |
-| FD_ESCS_EN | 0 | 0 | 禁用ESC故障检测 |
-| CBRK_SUPPLY_CHK | 894281 | (默认) | 仿真禁用电源检查,实飞恢复 |
-| COM_ARM_IMU_ACC | 2.0 | **0.7** | 加速度计偏差检查(仿真放宽,实飞恢复) |
+| COM_ARM_WO_GPS | 1 | **0** | 实飞必须GPS |
+| COM_LOW_BAT_ACT | 0 | **1** | 实飞低电量动作 |
+| NAV_RCL_ACT | 0 | **3**(返航) | 飞艇RTL实际=Altitude原地悬停 |
+| NAV_DLL_ACT | 0 | **3**(返航) | 同上 |
+| COM_RC_LOSS_T | 默认 | 5.0 s | |
+| COM_DL_LOSS_T | 默认 | 30.0 s | 150km数传 |
+| COM_DISARM_LAND | 0 | 0 | 禁用(悬停landed=true正常) |
+| COM_DISARM_PRFLT | 0 | 0 | 禁用(同上) |
+| COM_FAIL_ACT_T | 30 | 30 | |
+| COM_ARM_IMU_ACC | 2.0 | 0.7 | |
+| CBRK_SUPPLY_CHK | 894281 | 0(启用) | |
 
----
+**内部failsafe(airship_att_control, 独立于Commander)**: ARMED + (RC丢失或GCS丢失, 任一即可) + 心跳超时5s → 激活, 锁定位置/高度悬停; 信号恢复即解除。不通知Commander, QGC无告警(仅console日志`[FAILSAFE]`)。
 
-## 14. EKF2参数 (实飞)
+## 15. MAVLink/传感器/输出配置
 
-| 参数名 | [实飞首飞]值 | 说明 |
-|--------|--------------|------|
-| EKF2_ACC_NOISE | 0.5 | 加速度计噪声(飞艇振动大) |
-| EKF2_ACC_B_NOISE | 0.01 | 加速度计偏差噪声 |
-| EKF2_ABL_LIM | 0.4 | 加速度计偏差学习范围 |
-| EKF2_MAG_CHECK | 0 | 禁用磁力计一致性检查 |
-| EKF2_MAG_GATE | 5.0 | 放宽磁力计创新门限 |
-| EKF2_MAG_NOISE | 0.03 | 磁力计噪声 |
-| EKF2_GYR_NOISE | 0.01 | 陀螺仪噪声 |
-| EKF2_MAG_DECL | 0.0 | 磁偏角(0=自动获取) |
-| EKF2_DECL_TYPE | 1 | 启用geo_lookup磁偏角 |
-| EKF2_GPS_V_NOISE | 0.5 | GPS速度观测噪声(默认值) |
-| EKF2_GPS_P_NOISE | 0.5 | GPS位置观测噪声(默认值) |
+见 [03_interfaces.md](03_interfaces.md) 第7节 和 [05_hardware.md](05_hardware.md) 第4/6节。
 
----
+## 16. 参数前缀规范汇总
 
-## 15. MAVLink配置参数
-
-| 参数名 | 值 | 说明 |
-|--------|------|------|
-| MAV_TYPE | 7 | MAV_TYPE_AIRSHIP |
-| MAV_FWDEXTSP | 1 | 启用外部控制指令转发(Offboard需要) |
-| MAV_1_CONFIG | 101 | TELEM1端口 |
-| MAV_1_BAUD | 57600 | 数传波特率 |
-| MAV_1_MODE | 1 | Normal模式 |
-| MAV_1_RADIO_CTL | 0 | 禁用MAVLink无线电控制 |
-| MAV_2_CONFIG | 1000 | Ethernet端口(Companion Computer) |
-| MAV_2_BROADCAST | 1 | 广播模式 |
-| MAV_2_MODE | 0 | Custom模式 |
-| MAV_2_RATE | 100000 | 100kB/s(以太网高带宽) |
-| MAV_2_REMOTE_PRT | 14550 | 远程端口 |
-| MAV_2_UDP_PRT | 14550 | 本地UDP端口 |
-
----
-
-## 16. GPS与传感器参数
-
-| 参数名 | 值 | 说明 |
-|--------|------|------|
-| GPS_1_PROTOCOL | 2 | DroneCAN (CUAV NEO3 Pro via CAN1) |
-| SENS_GPS_MASK | 3 | 双GPS自动切换 |
-| UAVCAN_ENABLE | 1 | 仅传感器(GPS/磁力计/电池) |
-| UAVCAN_SUB_GPS | 1 | 订阅UAVCAN GPS |
-| UAVCAN_SUB_BAT | 1 | 订阅UAVCAN电池 |
-| SYS_HAS_MAG | 1 | 启用罗盘 |
-| SENS_BARO_QNH | 1013.25 | 气压计QNH |
-| SENS_EN_ASPD | 1 | 启用空速计驱动 |
-| ASPD_PRIMARY | 1 | 使用空速计作为主空速源 |
-| SENS_ARSPD_CFG | 4 | I2C4 (EXT2端口, SKYE2) |
-| ASPD_TYPE | 2 | MS4525 (SKYE2兼容) |
-
----
-
-## 17. 输出配置参数 (PWM_*)
-
-### MAIN端口 (8电机, PWM_MAIN_FUNC1-8)
-
-| 参数 | 值 | 说明 |
-|------|------|------|
-| PWM_MAIN_FUNC1-4 | 101-104 | 升力电机M0-M3 (Motor 1-4) |
-| PWM_MAIN_FUNC5-8 | 105-108 | 推进电机M4-M7 (Motor 5-8) |
-| PWM_MAIN_DIS1-8 | 1500 | 停转PWM(标准PWM) |
-| PWM_MAIN_MIN1-8 | 1000 | 最低速PWM |
-| PWM_MAIN_MAX1-8 | 2000 | 最高速PWM |
-
-### AUX端口 (鼓风机+阀门, PWM_AUX_FUNC1-4)
-
-| 参数 | 值 | 说明 |
-|------|------|------|
-| PWM_AUX_FUNC1 | 201 | Servo1 = 左鼓风机 |
-| PWM_AUX_FUNC2 | 202 | Servo2 = 右鼓风机 |
-| PWM_AUX_FUNC3 | 203 | Servo3 = 左阀门 |
-| PWM_AUX_FUNC4 | 204 | Servo4 = 右阀门 |
-| PWM_AUX_DIS1-4 | 1500 | 停转PWM |
-| PWM_AUX_MIN1-4 | 1000 | 最小PWM |
-| PWM_AUX_MAX1-4 | 2000 | 最大PWM |
-
-**注**: 鼓风机/阀门通过 `ballast_output` 模块输出到 `actuator_servos`,FunctionServos订阅`actuator_servos`映射到PWM。
-
----
-
-## 18. 系统配置参数
-
-| 参数名 | 值 | 说明 |
-|--------|------|------|
-| MIXER_FILE | /etc/mixers/lingyun01.mix | 混频器文件(注:实际改用控制分配器,mixer文件可能不存在) |
-| MIXER_AIRMODE | 0 | 禁用airmode |
-| MOT_NOUT | 12 | 输出通道总数(8电机+2鼓风机+2阀门) |
-| SDLOG_MODE | 2 | 日志模式 |
-| NAV_ACC_RAD | 3.0 | 导航精度半径 |
-
----
-
-## 19. 参数前缀规范
-
-| 前缀 | 模块 | @group | 说明 |
-|------|------|--------|------|
-| AS_ | airship_att_control | Airship Attitude Control | 飞艇姿态控制参数 |
-| BALLOON_* | ballast_control | Ballast Control | 浮力调节参数 |
-| BLOWER_* | ballast_control | Ballast Control | 鼓风机控制参数 |
-| VALVE_* | ballast_control | Ballast Control | 阀门控制参数 |
-| TRIM_BALLOON_* | ballast_control | Ballast Control | 浮力配平参数 |
-| CA_AS_* | control_allocator | Control Allocation | 飞艇控制分配物理常数 |
-| CA_ROTOR* | control_allocator | Control Allocation | 电机位置/方向配置 |
-| LNDAS_* | land_detector | Land Detector | 飞艇着陆检测阈值 |
-| MPC_* | navigator | Multicopter Position Control | 位置/速度限制(飞艇复用) |
-
-## 20. 参数分组(QGC参数页面建议)
-
-QGC通过 `@group` 标签自动分组,建议QGC参数界面按以下分组显示:
-
-1. **Airship Attitude Control** (AS_* 参数)
-   - 高度PID子组
-   - 俯仰PID子组
-   - 偏航PID子组
-   - 起飞/降落参数子组
-   - 位置/速度PID子组
-   - 自动测试/调参子组
-
-2. **Ballast Control** (BALLOON_*/BLOWER_*/VALVE_*/TRIM_BALLOON_* 参数)
-   - 浮力辅助控制开关
-   - 高度死区和阈值
-   - PID参数
-   - 配平参数
-
-3. **Control Allocation** (CA_* 参数)
-   - 物理常数
-   - 电机配置(只读,调试用)
-
-4. **Land Detector** (LNDAS_* 参数)
-
-5. **Multicopter Position Control** (MPC_* 参数,飞艇复用)
+| 前缀 | 模块 | @group |
+|------|------|--------|
+| AS_ | airship_att_control | Airship Attitude Control |
+| BALLOON_* / BLOWER_* / VALVE_* | ballast_control + ballast_output | Ballast Control |
+| CA_AS_* | control_allocator(飞艇) | Control Allocation |
+| LNDAS_* | land_detector | Land Detector |
+| MPC_* | navigator(复用) | Multicopter Position Control |

@@ -1,8 +1,11 @@
 # 04 - 飞行模式与状态机
 
+**文档版本**: 3.0 (基于2026-08-30全量代码分析, V2架构)
+**最后更新**: 2026-08-30
+
 ## 1. AirshipMode枚举
 
-**代码位置**: `src/modules/airship_att_control/AirshipControl.hpp` L46-56
+**代码位置**: `src/modules/airship_att_control/AirshipControl.hpp` L46-59
 
 ```cpp
 enum class AirshipMode : uint8_t {
@@ -15,347 +18,138 @@ enum class AirshipMode : uint8_t {
     Land      = 6,
     Failsafe  = 7,
     Task      = 8,
+    PropTest  = 9,   // V2新增: ACRO模式单侧推进测试
 };
 ```
 
-**重要变更**: 旧文档 `Task=7` 已作废,实际 `Failsafe=7, Task=8`
+**重要**: 此枚举是airship_att_control内部状态机, **不出现在任何MAVLink消息中**。QGC只能通过HEARTBEAT的nav_state映射(custom_mode)推断, PropTest对应PX4标准ACRO模式(5)。
 
----
+## 2. detectMode()完整优先级 (AirshipControl.cpp L328-438)
 
-## 2. 模式检测逻辑(detectMode)
+| 优先级 | 条件 | 返回模式 |
+|---|---|---|
+| 1 | `_failsafe_active` | **Failsafe** |
+| 2 | nav_state==AUTO_MISSION | **Task** (用户意图优先, 起飞Hold期间切MISSION不会卡Takeoff) |
+| 2 | nav_state==ACRO | **PropTest** (需CA_AS_PT_EN=1才有实际效果) |
+| 2 | AUTO_TAKEOFF + `_takeoff_completed` | `_mode_override`(≠Manual) 否则 **Altitude** |
+| 2 | AUTO_TAKEOFF + z有效且 `-z >= AS_TAKEOFF_ALT` | **Altitude** (V3修复: 高于目标不激活Takeoff, 防Settle失控下落) |
+| 2 | AUTO_TAKEOFF (其余) | **Takeoff** |
+| 2 | AUTO_LAND | **Land** |
+| 2 | AUTO_LOITER + 起飞进行中(`_takeoff_requested && !completed`) | **Takeoff** (V2: Navigator提前切LOITER需继续爬升) |
+| 2 | AUTO_LOITER (其余) | **Altitude** |
+| 2 | AUTO_RTL | 同LOITER逻辑 → **Takeoff** 或 **Altitude** (**RTL对飞艇=原地定高悬停, 不飞回home**) |
+| 3 | `_takeoff_requested && !completed` | **Takeoff** (nav_state已切走的过渡期) |
+| 3 | `_land_requested` | **Land** |
+| 4 | `_mode_override != Manual` | `_mode_override` |
+| 5 | MANUAL/STAB/ALTCTL/POSCTL/OFFBOARD | Manual/Stable/Altitude/Position/Offboard |
+| 6 | control_mode标志兜底 | Offboard/Position/Altitude/Stable |
+| 7 | 默认 | **Manual** |
 
-**代码位置**: `src/modules/airship_att_control/AirshipControl.cpp` L311+
+**_mode_override机制**: 唯一设置点=起飞完成→Altitude; 用户/Commander任何显式模式切换都清除; 作用是起飞完成到Commander处理DO_SET_MODE之间的过渡窗口保持Altitude。
 
-```mermaid
-graph TD
-    A[detectMode入口] --> B{failsafe激活?}
-    B -->|是| C[返回Failsafe]
-    B -->|否| D{nav_state?}
-    D -->|AUTO_MISSION| E[返回Task]
-    D -->|AUTO_TAKEOFF| F{起飞完成?}
-    F -->|是且_mode_override设置| G[返回_mode_override]
-    F -->|否| H[返回Takeoff]
-    D -->|AUTO_LAND| I[返回Land]
-    D -->|AUTO_LOITER| J[返回Altitude]
-    D -->|AUTO_RTL| K[返回Altitude]
-    D -->|其他| L{内部起飞请求?}
-    L -->|是| M[返回Takeoff]
-    L -->|否| N{内部降落请求?}
-    N -->|是| O[返回Land]
-    N -->|否| P{mode_override设置?}
-    P -->|是| Q[返回_mode_override]
-    P -->|否| R{nav_state?}
-    R -->|MANUAL| S[返回Manual]
-    R -->|STAB| T[返回Stable]
-    R -->|ALTCTL| U[返回Altitude]
-    R -->|POSCTL| V[返回Position]
-    R -->|OFFBOARD| W[返回Offboard]
+## 3. 各模式状态机详解
+
+### 3.1 Takeoff (起飞, =5) — 核心状态机
+
+```
+Settle(0) → Climb(1) → Hold(2) → Complete(3)
 ```
 
-**说明**:
-- AUTO_LOITER 和 AUTO_RTL 在飞艇中自动映射到 Altitude 模式
-- 起飞完成后通过 `_mode_override` 切换到 Altitude 模式
-- 内部起飞/降落请求优先于 nav_state
+| 阶段 | 时长/条件 | 行为 |
+|------|----------|------|
+| **Settle** | 激活后0-5s | 保持当前高度(position(2)=当前z), 水平=当前位置, thrust_x=0; 等待EKF z初始化 |
+| **Climb** | Settle结束→到达目标 | position(2)=target_z(**绝对AGL的NED负值**, V3修复), AS_TKF_VMAX=0.5m/s限速, AS_TAKEOFF_RAMP=5s推力软启动(重置高度积分器), 推进电机关闭 |
+| **Hold** | 到达后 | \|pos_z - target_z\| <= AS_TKF_ALT_TOL(2m)内连续计时; 超差重置; 连续 >= AS_TKF_HOLD_T(20s) → Complete |
+| **Complete** | - | runControl发`DO_SET_MODE(AUTO+LOITER)` + `_mode_override=Altitude` + `_takeoff_completed=true`; 日志`[TAKEOFF] Completed -> switching to AUTO_LOITER` |
 
----
+- **cancel()**: 模式切换/AUTO_LAND时置cancelled, 提前完成退出
+- **落地复位**: `_takeoff_completed && landed && alt_agl<1m` → 清takeoff状态
+- **手动油门爬升**: Climb阶段setManualThrottle可调velocity(2), 但当前代码position三分量均finite走updatePosition分支, **该velocity(2)实际不生效**(已知问题)
 
-## 3. 各模式详细说明
+### 3.2 Land (降落, =6)
 
-### 3.1 Manual (手动模式, =0)
-
-| 项目 | 说明 |
-|------|------|
-| 输入 | 遥控器/虚拟摇杆 |
-| 输出 | 直接映射到推力/力矩设定值 |
-| 自动控制 | 无 |
-| 激活条件 | nav_state=MANUAL |
-| 退出条件 | 操作员切换模式 |
-| QGC显示 | "Manual" |
-
-**操纵映射**:
-- Throttle → Thrust X (推进电机)
-- Pitch杆 → 高度调节
-- Roll杆 → 偏航角速率
-- Yaw杆 → 俯仰角速率
-
-### 3.2 Stable (自稳定模式, =1)
-
-| 项目 | 说明 |
-|------|------|
-| 输入 | 遥控器/虚拟摇杆 |
-| 输出 | 推力/力矩设定值(含姿态稳定) |
-| 自动控制 | 姿态环激活(俯仰/偏航角稳定) |
-| 激活条件 | nav_state=STAB |
-| 退出条件 | 操作员切换模式 |
-| QGC显示 | "Stabilized" |
-
-**悬停检测**: `thrust_x < 0.01f` 时推进电机关闭,自动保持悬停。
-
-### 3.3 Altitude (定高模式, =2)
-
-| 项目 | 说明 |
-|------|------|
-| 输入 | 遥控器/虚拟摇杆(水平), 目标高度(垂直) |
-| 输出 | 推力/力矩设定值 |
-| 自动控制 | 高度PID + 速度PID + 姿态环 |
-| 激活条件 | nav_state=ALTCTL 或 AUTO_LOITER 或 AUTO_RTL 或起飞完成 |
-| 退出条件 | 操作员切换模式 |
-| QGC显示 | "Altitude" / "Loiter" / "RTL" |
-
-**控制律**:
-- 高度PID: AS_ALT_P/I/D + AS_ALT_VFF前馈
-- 速度PID(水平): AS_VEL_XY_P/I/D
-- 高度限位: AS_ALT_MIN <= 目标高度 <= AS_ALT_MAX
-- 软限位: alt > AS_ALT_SOFT 时线性递减上升推力
-
-### 3.4 Position (定点模式, =3)
-
-| 项目 | 说明 |
-|------|------|
-| 输入 | 遥控器/虚拟摇杆(微调), 目标位置 |
-| 输出 | 推力/力矩设定值 |
-| 自动控制 | 位置PID + 速度PID + 姿态环 |
-| 激活条件 | nav_state=POSCTL |
-| 退出条件 | 操作员切换模式 |
-| QGC显示 | "Position" |
-
-**控制律**:
-- 位置PID: AS_POS_XY_P (输出目标速度)
-- 速度PID: AS_VEL_XY_P/I/D (输出推力)
-- 位置误差限位: |pos_error| <= AS_POS_XY_MAX
-- 速度限位: |vel_target| <= AS_VEL_XY_MAX
-
-### 3.5 Offboard (外部控制模式, =4)
-
-| 项目 | 说明 |
-|------|------|
-| 输入 | vehicle_attitude_setpoint (来自MAVLink SET_ATTITUDE_TARGET) |
-| 输出 | 推力/力矩设定值 |
-| 自动控制 | 姿态环(根据setpoint) |
-| 激活条件 | nav_state=OFFBOARD + offboard_control_mode消息有效 |
-| 退出条件 | 操作员切换模式 或 offboard_control_mode超时 |
-| QGC显示 | "Offboard" |
-
-**Offboard接口**:
-- 通过 `SET_ATTITUDE_TARGET` 消息控制
-- 飞艇特殊映射: `body_roll_rate→thrust_x`, `thrust→thrust_z`
-- 详见 [03_interfaces.md](03_interfaces.md) 第4节
-
-### 3.6 Takeoff (起飞模式, =5)
-
-| 项目 | 说明 |
-|------|------|
-| 输入 | 内部参数(AS_TAKEOFF_*) |
-| 输出 | 推力/力矩设定值(仅升力电机) |
-| 自动控制 | 高度PID爬升 |
-| 激活条件 | nav_state=AUTO_TAKEOFF + 高度<AS_TAKEOFF_ALT |
-| 退出条件 | 到达目标高度+保持时间完成 → 自动切换Altitude |
-| QGC显示 | "Takeoff" |
-
-**前置条件**:
-1. ARMED (已解锁)
-2. `alt_agl < AS_TAKEOFF_ALT` (高度低于目标高度)
-3. 收到Takeoff命令 (MAVLink NAV_TAKEOFF 或 RC开关)
-
-**起飞流程**:
-```mermaid
-graph LR
-    A[检测到AUTO_TAKEOFF] --> B{alt_agl < AS_TAKEOFF_ALT?}
-    B -->|否| C[拒绝起飞,日志告警]
-    B -->|是| D[Climb阶段]
-    D --> E[软启动AS_TAKEOFF_RAMP秒]
-    E --> F[垂直爬升到AS_TAKEOFF_ALT]
-    F --> G[Hold阶段]
-    G --> H[保持AS_TKF_HOLD_T秒,容差AS_TKF_ALT_TOL]
-    H --> I[自动切换到Altitude模式]
+```
+PoweredDescent(0) → Done(1)
 ```
 
-**关键约束**:
-- 起飞模式只激活升力电机(0-3),推进电机(4-7)必须关闭
-- 控制分配器检测 `thrust_x < 0.01f` 时认为起飞/悬停模式,推进电机关闭
-- 油门只对应升力电机
+- **分阶段下降速度** (computeDescentVelocity): >10m→AS_LND_VHI(1.5); 5-10m→VMID(1.0); 2-5m→VLO(0.5); <2m→VGND(0.2) m/s
+- **实现**: position(2)=NAN + velocity(2)=下降速度 + position(0/1)=当前位置 → 走"水平位置PID+垂直速度PID"分支(复用高度积分器)
+- **Done判据**: `alt_agl <= AS_LND_DONE_ALT(3m)`, **不依赖landed标志**(中性浮力悬停landed=true会误触发)
+- **Done动作**: velocity(2)=0悬停 → runControl发`VEHICLE_CMD_COMPONENT_ARM_DISARM`(param2=21196强制) → QGC显示已解锁
+- **AUTO_LAND模式强制landed=true**(land_detector配合语义)
 
-### 3.7 Land (降落模式, =6)
+### 3.3 Failsafe (故障保护, =7) — 内部机制
 
-| 项目 | 说明 |
-|------|------|
-| 输入 | 内部参数(AS_LND_*) |
-| 输出 | 推力/力矩设定值(仅升力电机) |
-| 自动控制 | 高度PID分阶段下降 |
-| 激活条件 | nav_state=AUTO_LAND |
-| 退出条件 | alt_agl <= AS_LND_DONE_ALT → 自动disarm |
-| QGC显示 | "Land" |
+**触发** (checkFailsafe, 独立于Commander failsafe状态机):
+- 条件: ARMED + (RC丢失 **或** GCS丢失, 任一即可, V2修复) + 此前收到过正常心跳 + 心跳超时5s
+- 动作: `_failsafe_active=true`, detectMode→Failsafe, 任务=锁定当前位置/高度/yaw安全悬停
+- **Failsafe任务细节(V6)**: 位置有效→锁定xy但不设thrust_x(让L1导引纠漂移); yaw不写setpoint(让位置PID的yaw_setpoint指向误差方向); 无估计时velocity=0+thrust_x=0靠中性浮力悬停
+- **解除**: 信号恢复即解除(日志`[FAILSAFE] Signal recovered`) 或 解锁
+- **QGC可见性限制**: 仅console日志`[FAILSAFE] === ACTIVATED ===`, **不发STATUSTEXT**, QGC界面无告警
 
-**降落流程**:
-```mermaid
-graph TD
-    A[检测到AUTO_LAND] --> B[分阶段下降]
-    B --> C{alt_agl > 10m?}
-    C -->|是| D[VHI=1.5m/s下降]
-    C -->|否| E{5m < alt_agl <= 10m?}
-    E -->|是| F[VMID=1.0m/s下降]
-    E -->|否| G{2m < alt_agl <= 5m?}
-    G -->|是| H[VLO=0.5m/s下降]
-    G -->|否| I[VGND=0.2m/s接地]
-    I --> J{alt_agl <= AS_LND_DONE_ALT?}
-    J -->|是| K[自动disarm]
-    J -->|否| I
-```
+**与Commander failsafe的关系**: 两套并行。Commander层(RC/DLL丢失按NAV_RCL_ACT/NAV_DLL_ACT=3→RTL, 飞艇RTL实际被detectMode降维成Altitude悬停); AirshipControl内部层(锁定悬停)。实飞表现: 信号丢失时ballast_control还会触发紧急排气。
 
-**关键约束**:
-- 降落模式只激活升力电机(0-3),推进电机(4-7)必须关闭
-- Done判断仅使用 `alt_agl <= AS_LND_DONE_ALT`,不依赖 `vehicle_land_detected.landed`
-- 接地速度 AS_LND_VGND=0.2m/s gentle touchdown
+### 3.4 PropTest (推进测试, =9, ACRO模式)
 
-### 3.8 Failsafe (失控保护模式, =7)
+- ACRO模式 + ARMED + CA_AS_PT_EN=1 → 控制分配器旁路全部闭环
+- 仅输出CA_AS_PT_SIDE指定一侧推进电机(0=左组M6+M8, 1=右组M7+M9, 2=仅M6, 3=仅M7, 4=仅M0诊断), 油门=CA_AS_PT_THR(0.3)
+- 用途: 复现/量化单侧推进引发的姿态耦合失控
+- DISARM立即全零
 
-| 项目 | 说明 |
-|------|------|
-| 输入 | 内部状态 |
-| 输出 | 推力/力矩设定值(保守) |
-| 自动控制 | 保持当前模式或返航 |
-| 激活条件 | RC丢失 / 数据链丢失 / 低电量 / 内部故障 |
-| 退出条件 | 操作员恢复控制 |
-| QGC显示 | "Failsafe" |
+### 3.5 Manual (手动, =0)
 
-**Failsafe触发源**:
+无状态机, 直接映射: thrust_x=constrain(throttle,0,1); yawspeed=roll_stick*YAW_RMAX; pitch=pitch_stick*15°; velocity(2)=-pitch_stick*ALT_SRATE(**pitch杆双职能: 同时控俯仰角和升降**, 升降走速度直通)。
+**注**: PX4内核把飞艇归旋翼, MANUAL本身带姿态增稳。
 
-| 触发源 | 实飞参数 | 实飞动作 |
-|--------|---------|---------|
-| RC丢失 | COM_RC_LOSS_T=5s, NAV_RCL_ACT=3 | 返航 |
-| 数据链丢失 | COM_DL_LOSS_T=30s, NAV_DLL_ACT=3 | 返航 |
-| 低电量 | COM_LOW_BAT_ACT=1 | 自动降落 |
-| 内部故障 | COM_FAIL_ACT_T=30s | 30秒后执行failsafe动作 |
+### 3.6 Stable (自稳定, =1)
 
-**飞艇failsafe特殊性**:
-- 飞艇中性浮力,断电后缓慢飘移而非坠落
-- 不能简单复用多旋翼的"立即降落"策略
-- 仿真禁用所有failsafe (NAV_RCL_ACT=0, NAV_DLL_ACT=0)
-- 实飞首飞启用所有failsafe
+yaw锁定(activate时记当前yaw)+俯仰角控制: thrust_x=throttle; velocity(2)=pitch_stick(±1); yawspeed=roll_stick; **pitch=yaw_stick*15°**(yaw杆控俯仰)。悬停检测: thrust_x<0.01且无torque_z时推进关闭。
 
-### 3.9 Task (任务模式, =8)
+### 3.7 Altitude (定高, =2)
 
-| 项目 | 说明 |
-|------|------|
-| 输入 | position_setpoint_triplet (来自navigator) |
-| 输出 | 推力/力矩设定值 |
-| 自动控制 | 位置PID + 速度PID + 姿态环 |
-| 激活条件 | nav_state=AUTO_MISSION |
-| 退出条件 | 任务完成 或 操作员切换模式 |
-| QGC显示 | "Mission" |
+- activate: 锁当前高度为目标
+- 摇杆调高: 油门偏离中位(死区0.05) → 目标±AS_ALT_SRATE*dt; **外部目标注入**(DO_CHANGE_ALTITUDE/起飞残留)时禁用摇杆调高
+- 悬停转向(P7): roll_stick>0.05且forward<0.06时自动给最小forward=0.06(仅用户主动输入触发, 与分配器yaw_diff需要forward>0.05配合)
+- 高度三级限位见02_parameters第1节
 
-**任务特点**:
-- 起飞任务: 只能设置高度(垂直爬升)
-- 航点任务: 需考虑大惯量,提前规划减速
-- 降落任务: 需设置降落区域(考虑漂移)
-- 偏航大角度转向需S形(气动力矩限制)
+### 3.8 Position (定点, =3)
 
----
+- activate: 锁当前位置+高度
+- 摇杆: 速度指令(vx=pitch_stick*vel_max, vy=-roll_stick*vel_max)经yaw旋转积分移动目标点; 油门调高
+- 目标注入: trajectory_setpoint pos[0/1](500ms新鲜度, **不用pos[2]**), 高度走内部链
+- L1导引+停推保护见02_parameters第5节
+- 1Hz调试日志`[POSDBG]`(风速/漂移/误差/输出)
 
-## 4. 模式切换状态机
+### 3.9 Offboard (外部控制, =4)
 
-### 4.1 用户主动切换
+输入vehicle_attitude_setpoint(500ms新鲜): thrust_body[0]→thrust_x, thrust_body[2]→thrust_z, q_d→pitch(±15°)/yaw。无效时安全悬停。
 
-```mermaid
-graph LR
-    Manual -->|操作员| Stable
-    Stable -->|操作员| Altitude
-    Altitude -->|操作员| Position
-    Position -->|操作员| Offboard
-    Manual -->|操作员| Altitude
-    Manual -->|操作员| Position
-    Stable -->|操作员| Position
-    Altitude -->|操作员| Offboard
-```
+### 3.10 Task (任务, =8)
 
-### 4.2 自动切换
+- 目标来自position_setpoint_triplet: MapProjection把lat/lon投成本地NED, target_z=-(alt-ref_alt)
+- **LOITER占位处理**: current==LOITER且next==POSITION时直接取next(飞艇中性浮力不做"先爬升再水平", 否则原地LOITER永不前进)
+- 航点高度同步到全局altitude_target(供ballast)
+- triplet无效→holdPosition回锁当前位置
+- yaw优先用triplet的yaw_target
 
-```mermaid
-graph LR
-    Takeoff -->|到达目标高度+保持时间| Altitude
-    Land -->|alt_agl<=AS_LND_DONE_ALT| Disarm
-    AnyMode -->|failsafe触发| Failsafe
-    Failsafe -->|操作员恢复| AnyMode
-```
+## 4. 模式间自动切换行为汇总
 
-### 4.3 模式切换内部逻辑
+| 事件 | 自动行为 | QGC看到的现象 |
+|------|---------|--------------|
+| 起飞完成(Hold 20s) | 发DO_SET_MODE(AUTO+LOITER) | 模式显示从Takeoff变Loiter |
+| 降落完成(alt<=3m) | 发强制DISARM(21196) | 显示Disarmed |
+| 起飞中Navigator切LOITER | detectMode保持Takeoff(内部标志) | 显示Loiter但仍在爬升 |
+| RC/GCS丢失(实飞NAV_RCL/DLL_ACT=3) | Commander→AUTO_RTL→飞艇Altitude悬停 + ballast紧急排气 | 显示RTL/Loiter, 高度缓慢变化 |
+| 信号恢复 | 内部failsafe解除, 回detectMode自然结果 | 恢复正常 |
+| Takeoff请求但alt>=20m | PX4_WARN拒绝, 保持Altitude | **无任何QGC提示(仅日志)** |
 
-**_mode_override机制**:
-- 起飞完成后设置 `_mode_override = AirshipMode::Altitude`
-- detectMode优先返回 `_mode_override` (如果已设置)
-- 用户切换到其他模式时清除 `_mode_override`
+## 5. 模式与执行器激活映射(V2)
 
-**内部起飞/降落状态清除**:
-当用户切换到 MANUAL/STAB/ALTCTL/POSCTL/OFFBOARD 模式时,清除内部起飞/降落状态:
-- `_takeoff_requested = false`
-- `_takeoff_completed = false`
-- `_land_requested = false`
+| 模式 | 上升电机0-3 | 下降电机4-5 | 推进电机6-9 | 浮力系统 |
+|------|------------|------------|------------|---------|
+| Manual/Stable/Altitude/Position/Offboard/Task | 按thrust_z/torque | 按thrust_z/torque | 按**nav_state硬开关**(非起降模式允许), 可反转差动 | 独立PID |
+| **Takeoff/Land** | 激活 | 激活 | **强制关闭**(`_prop_allowed=false`, nav_state级硬开关) | 独立PID |
+| Failsafe | 锁定悬停输出 | — | L1导引或0 | **紧急排气**(若failsafe) |
+| PropTest(ACRO) | 仅PT_SIDE=4时M0 | 关 | 仅指定单侧 | 独立PID |
 
-切换到 AUTO_MISSION/AUTO_LOITER/AUTO_RTL 时,如果起飞正在进行则不清除。
-
----
-
-## 5. 模式与电机激活映射
-
-| 模式 | 升力电机(0-3) | 推进电机(4-7) | 鼓风机/阀门(8-11) |
-|------|-------------|-------------|------------------|
-| Manual | 激活(手动控制) | 激活(手动控制) | 由ballast_control独立控制 |
-| Stable | 激活(姿态稳定) | 激活(thrust_x控制) | 由ballast_control独立控制 |
-| Altitude | 激活(高度PID) | 激活(thrust_x控制) | 由ballast_control独立控制 |
-| Position | 激活(高度PID) | 激活(位置PID) | 由ballast_control独立控制 |
-| Offboard | 激活(根据setpoint) | 激活(根据setpoint) | 由ballast_control独立控制 |
-| **Takeoff** | **激活(爬升)** | **关闭** | 由ballast_control独立控制 |
-| **Land** | **激活(下降)** | **关闭** | 由ballast_control独立控制 |
-| Failsafe | 激活(保守控制) | 视情况 | 由ballast_control独立控制 |
-| Task | 激活 | 激活 | 由ballast_control独立控制 |
-
-**关键约束**:
-- Takeoff/Land 模式推进电机必须关闭 (`thrust_x < 0.01f` 检测)
-- ballast_control 是独立模块,在所有模式下持续工作(如果 BALLOON_AST_EN=1)
-
----
-
-## 6. 起飞/降落前置条件与命令处理
-
-### 6.1 起飞命令处理流程
-
-**代码位置**: `src/modules/airship_att_control/AirshipControl.cpp` L142-173
-
-```mermaid
-graph TD
-    A[MAVLink NAV_TAKEOFF命令] --> B[Commander切换nav_state=AUTO_TAKEOFF]
-    B --> C[AirshipControl检测nav_state变化]
-    C --> D{alt_agl < AS_TAKEOFF_ALT?}
-    D -->|否| E[PX4_WARN: Rejected,alt >= target]
-    D -->|是| F[_takeoff_requested=true]
-    F --> G[设置takeoff参数]
-    G --> H[进入Takeoff模式]
-```
-
-### 6.2 降落命令处理流程
-
-**代码位置**: `src/modules/airship_att_control/AirshipControl.cpp` L175-196
-
-```mermaid
-graph TD
-    A[MAVLink NAV_LAND命令] --> B[Commander切换nav_state=AUTO_LAND]
-    B --> C[AirshipControl检测nav_state变化]
-    C --> D{已起飞且未完成?}
-    D -->|是| E[取消起飞]
-    D -->|否| F[_land_requested=true]
-    F --> G[设置land参数]
-    G --> H[进入Land模式]
-```
-
-### 6.3 起飞完成自动切换
-
-```mermaid
-graph TD
-    A[Takeoff模式:Climb+Hold] --> B{Hold时间>=AS_TKF_HOLD_T?}
-    B -->|是| C{高度误差<AS_TKF_ALT_TOL?}
-    C -->|是| D[_takeoff_completed=true]
-    C -->|否| E[重置Hold计时器]
-    D --> F[发送vehicle_command切换到ALTCTL]
-    F --> G[_mode_override=Altitude]
-    G --> H[detectMode返回Altitude]
-```
+**关键**: 起飞/降落推进关闭的判定已从"thrust_x<0.01启发式"升级为**nav_state硬开关**(ActuatorEffectivenessCustom L184-200), 同时保留`takeoff_hover_mode=(thrust_x<0.01 && |torque_z|<0.01)`判定用于悬停工况。
