@@ -8,31 +8,9 @@
     "shortDesc":        "Net Buoyancy",
     "type":             "double",
     "decimalPlaces":    1,
-    "units":            "N"
-},
-{
-    "name":             "blowerLeft",
-    "shortDesc":        "Blower L",
-    "type":             "double",
-    "decimalPlaces":    2
-},
-{
-    "name":             "blowerRight",
-    "shortDesc":        "Blower R",
-    "type":             "double",
-    "decimalPlaces":    2
-},
-{
-    "name":             "valveLeft",
-    "shortDesc":        "Valve L",
-    "type":             "double",
-    "decimalPlaces":    0
-},
-{
-    "name":             "valveRight",
-    "shortDesc":        "Valve R",
-    "type":             "double",
-    "decimalPlaces":    0
+    "units":            "N",
+    "min":              -500,
+    "max":              500
 },
 {
     "name":             "altitudeError",
@@ -40,6 +18,31 @@
     "type":             "double",
     "decimalPlaces":    1,
     "units":            "m"
+},
+{
+    "name":             "ballastMass",
+    "shortDesc":        "Ballast Mass",
+    "type":             "double",
+    "decimalPlaces":    1,
+    "units":            "kg",
+    "min":              0,
+    "max":              128.5
+},
+{
+    "name":             "blowerDuty",
+    "shortDesc":        "Blower Duty",
+    "type":             "double",
+    "decimalPlaces":    0,
+    "min":              0,
+    "max":              255
+},
+{
+    "name":             "valveState",
+    "shortDesc":        "Valve State",
+    "type":             "double",
+    "decimalPlaces":    0,
+    "min":              0,
+    "max":              255
 }
 ]
 }

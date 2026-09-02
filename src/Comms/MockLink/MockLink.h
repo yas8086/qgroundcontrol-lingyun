@@ -235,8 +235,8 @@ private:
     void _sendSysStatus();
     void _sendBatteryStatus();
     void _sendNamedValueFloats();
-    // 飞艇专用：发送 AirshipBallastFactGroup 期望的 6 个 NAMED_VALUE_FLOAT
-    // (buoy/blw_l/blw_r/vlv_l/vlv_r/alt_err)，让飞艇 MockLink 下第 2 页数据可端到端验证
+    // 飞艇专用：发送 PX4 ballast_control 五字段轮转 NAMED_VALUE_FLOAT
+    // (buoy/alt_err/b_mass/blower/valve，03_interfaces.md §5)，让飞艇 MockLink 下浮力数据可端到端验证
     void _sendAirshipBallastNamedValueFloats();
     void _sendChunkedStatusText(uint16_t chunkId, bool missingChunks);
     void _sendStatusTextMessages();
