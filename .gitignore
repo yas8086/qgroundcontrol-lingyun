@@ -15,6 +15,12 @@
 # Trae CN IDE
 .trae/
 
+# superpowers SDD tool session artifacts
+.superpowers/
+
+# Large third-party reference PDFs (local only)
+docs/lingyun/参考/
+
 # VS Code - track .default files, ignore personal overrides
 .vscode/*
 !.vscode/extensions.json
