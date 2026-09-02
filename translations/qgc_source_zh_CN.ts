@@ -2,6 +2,29 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="zh-CN" sourcelanguage="en">
   <context>
+    <name>AirshipPagedValuesBar</name>
+    <message>
+      <source>Modules</source>
+      <translation>模块</translation>
+    </message>
+    <message>
+      <source>Show Modules</source>
+      <translation>显示模块</translation>
+    </message>
+    <message>
+      <source>Flight Core</source>
+      <translation>飞行核心</translation>
+    </message>
+    <message>
+      <source>Buoyancy / Attitude</source>
+      <translation>浮力 / 姿态</translation>
+    </message>
+    <message>
+      <source>Energy / Mission</source>
+      <translation>能源 / 任务</translation>
+    </message>
+  </context>
+  <context>
     <name>APMAdvancedTuningCopterComponent</name>
     <message>
       <location filename="../src/AutoPilotPlugins/APM/APMAdvancedTuningCopterComponent.qml" line="27"/>
@@ -12835,7 +12858,7 @@ Is this really what you want?</translation>
     <message>
       <location filename="../src/QmlControls/PIDTuning.qml" line="330"/>
       <source>Switches to &apos;%1&apos; when you click Stop.</source>
-      <translation>点击“停止”后，切换到 &apos;稳定&apos;。</translation>
+      <translation>点击“停止”后，切换到 &apos;%1&apos;。</translation>
     </message>
     <message>
       <location filename="../src/QmlControls/PIDTuning.qml" line="346"/>
