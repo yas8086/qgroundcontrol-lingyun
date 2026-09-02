@@ -67,13 +67,6 @@ ColumnLayout {
             from: fact.min
             to: fact.max
         }
-        LabelledFactSlider {
-            Layout.fillWidth: true
-            label: qsTr("Switch Threshold")
-            fact: controller.getParameterFact(-1, "BALLOON_THRSHLD")
-            from: fact.min
-            to: fact.max
-        }
     }
 
     // 参数不可用时的提示
