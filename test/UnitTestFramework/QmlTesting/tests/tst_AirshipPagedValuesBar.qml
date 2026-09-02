@@ -7,21 +7,13 @@ Item {
     id: testRoot
     width: 400; height: 300
 
-    // QGC QML 测试框架限制（brief 修正 #3）：QGCQmlQuickTests 进程未链接
-    // QGroundControlModule/FlyViewModule 的 qrc 资源，qmldir `prefer :/qml/...`
-    // 让 Qt 优先从 qrc 加载 QML 文件，但测试进程无该 qrc，导致所有 QGC 类型
-    // （含 AirshipPagedValuesBar、QGCPalette 等）在测试进程不可用。
+    // QGC QML 测试框架限制：QGCQmlQuickTests 进程未链接 FlyViewModule 的 qrc 资源，
+    // QGroundControl singleton 在该进程不可用，运行时断言一律 skip。
+    // 真正的 settings 默认值验证在 C++ AirshipSettingsTest 中执行（避免假绿）。
     //
-    // 应对策略：
-    //   1) 用 Loader.source URL 字符串而非 sourceComponent+Component{AirshipPagedValuesBar}：
-    //      后者会在 QML 编译期解析 AirshipPagedValuesBar 类型，触发 compile() FAIL；
-    //      source 是字符串，编译期不解析类型，编译通过。
-    //   2) initTestCase 探测 QGroundControl singleton，不可用则 skip + 置 _qgcReady=false。
-    //      注意：Qt6 QML TestCase 的 skip() 在 initTestCase 中只跳过 initTestCase 自身，
-    //      不跳过其他测试函数（与 Qt5/文档描述不同），故每个 test_xxx 需自行检查 _qgcReady。
-    //   3) 运行时分页逻辑验证延后到 Task 7 端到端（启动 QGC+MockLink 飞艇实测）。
-    //   4) 保留 brief 的断言逻辑，未来框架支持时（QGCQmlQuickTests 链接资源或 qmldir 不
-    //      prefer qrc）自动启用。
+    // 组件现为并排布局：三主题页（飞行核心/浮力/能源）横向排开，
+    // 每页单列 ≤3 行（FactValueGrid.maxColumns/maxRows 硬限制），
+    // 页面显隐由 FlyViewSettings.airshipShowPage* 三个 bool 控制。
     property bool _qgcReady: false
 
     Loader {
@@ -44,48 +36,27 @@ Item {
             _qgcReady = true
         }
 
-        function test_defaultPageCount() {
+        function test_componentLoads() {
             if (!_qgcReady) skip("QGroundControl singleton not available in QGCQmlQuickTests process")
-            compare(barLoader.item.pageCount, 3, "default 3 pages")
+            verify(barLoader.item, "AirshipPagedValuesBar loaded")
         }
 
-        function test_appendDelete() {
+        function test_pageVisibilityDefaults() {
             if (!_qgcReady) skip("QGroundControl singleton not available in QGCQmlQuickTests process")
-            var bar = barLoader.item
-            var initial = bar.pageCount
-            bar.appendPage()
-            compare(bar.pageCount, initial + 1, "page added")
-            bar.deleteLastPage()
-            compare(bar.pageCount, initial, "page removed back to initial")
+            var flyView = QGroundControl.settingsManager.flyViewSettings
+            compare(flyView.airshipShowPageFlightCore.rawValue, true, "flight core page visible by default")
+            compare(flyView.airshipShowPageBuoyancy.rawValue, true, "buoyancy page visible by default")
+            compare(flyView.airshipShowPageEnergy.rawValue, true, "energy page visible by default")
         }
 
-        function test_defaultValuesLoadedOnEmptyPage() {
+        function test_pageVisibilityToggle() {
             if (!_qgcReady) skip("QGroundControl singleton not available in QGCQmlQuickTests process")
-            var bar = barLoader.item
-            var page0 = bar.swipeView.itemAt(0)
-            verify(page0, "page 0 exists")
-            var grid = page0.factValueGrid
-            verify(grid, "page 0 has factValueGrid")
-            // C++ QGCCorePlugin::_createAirshipPagedDefaultSettings fills airship
-            // defaults (AltitudeRelative/ClimbRate/...) at componentComplete for
-            // settingsGroup "AirshipInstr.Page0". QML no longer injects defaults.
-            compare(grid.columns.count, 2, "page 0 has 2 columns (airship defaults)")
-            compare(grid.rowCount, 3, "page 0 has 3 rows (airship defaults)")
-            var firstFact = grid.columns.get(0).get(0)
-            compare(firstFact.factName, "AltitudeRelative", "page 0 col0 row0 is AltitudeRelative")
-        }
-
-        function test_pageCountClamped() {
-            if (!_qgcReady) skip("QGroundControl singleton not available in QGCQmlQuickTests process")
-            var bar = barLoader.item
-            while (bar.pageCount > 1) bar.deleteLastPage()
-            compare(bar.pageCount, 1, "min 1 page")
-            bar.deleteLastPage()
-            compare(bar.pageCount, 1, "cannot go below 1 page")
-            while (bar.pageCount < 5) bar.appendPage()
-            compare(bar.pageCount, 5, "max 5 pages")
-            bar.appendPage()
-            compare(bar.pageCount, 5, "cannot exceed 5 pages")
+            var flyView = QGroundControl.settingsManager.flyViewSettings
+            var original = flyView.airshipShowPageFlightCore.rawValue
+            flyView.airshipShowPageFlightCore.rawValue = !original
+            compare(flyView.airshipShowPageFlightCore.rawValue, !original, "flight core toggle persisted")
+            flyView.airshipShowPageFlightCore.rawValue = original
+            compare(flyView.airshipShowPageFlightCore.rawValue, original, "flight core restored")
         }
     }
 }

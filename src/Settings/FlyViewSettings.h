@@ -30,6 +30,8 @@ public:
     DEFINE_SETTINGFACT(requestControlAllowTakeover)
     DEFINE_SETTINGFACT(requestControlTimeout)
     DEFINE_SETTINGFACT(enableAutomaticMissionPopups)
-    DEFINE_SETTINGFACT(airshipInstrumentPageCount)
     DEFINE_SETTINGFACT(airshipShowTelemetryBar)
+    DEFINE_SETTINGFACT(airshipShowPageFlightCore)
+    DEFINE_SETTINGFACT(airshipShowPageBuoyancy)
+    DEFINE_SETTINGFACT(airshipShowPageEnergy)
 };

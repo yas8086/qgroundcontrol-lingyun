@@ -138,20 +138,36 @@
             "keywords": "mission popup"
         },
         {
-            "name": "airshipInstrumentPageCount",
-            "shortDesc": "Number of pages in the airship paged instrument panel.",
-            "type": "uint32",
-            "default": 3,
-            "label": "Airship instrument page count",
-            "keywords": "airship,instrument,page"
-        },
-        {
             "name": "airshipShowTelemetryBar",
             "shortDesc": "Show the airship paged telemetry bar in Fly view.",
             "type": "bool",
             "default": true,
             "label": "Show airship telemetry bar",
             "keywords": "airship,instrument,telemetry"
+        },
+        {
+            "name": "airshipShowPageFlightCore",
+            "shortDesc": "Show the flight-core page of the airship telemetry bar.",
+            "type": "bool",
+            "default": true,
+            "label": "Airship page: flight core",
+            "keywords": "airship,instrument,page,flight"
+        },
+        {
+            "name": "airshipShowPageBuoyancy",
+            "shortDesc": "Show the buoyancy page of the airship telemetry bar.",
+            "type": "bool",
+            "default": true,
+            "label": "Airship page: buoyancy",
+            "keywords": "airship,instrument,page,buoyancy"
+        },
+        {
+            "name": "airshipShowPageEnergy",
+            "shortDesc": "Show the energy/mission page of the airship telemetry bar.",
+            "type": "bool",
+            "default": true,
+            "label": "Airship page: energy",
+            "keywords": "airship,instrument,page,energy"
         }
     ]
 }

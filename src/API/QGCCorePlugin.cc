@@ -38,6 +38,7 @@
 
 #include <QtCore/QApplicationStatic>
 #include <QtCore/QFile>
+#include <QtCore/QSettings>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlContext>
 #include <QtQuick/QQuickItem>
@@ -300,8 +301,9 @@ void QGCCorePlugin::_createAirshipPagedDefaultSettings(FactValueGrid *factValueG
     const int prefixLen = static_cast<int>(QStringLiteral("AirshipInstr.Page").length());
     int pageIndex = settingsGroup.mid(prefixLen).toInt();
 
-    // Airship default telemetry: 3 pages, 2 columns each, up to 3 rows per column.
-    // factName nullptr marks an empty slot (column has fewer rows than the page max).
+    // Airship default telemetry: 3 pages displayed side by side at the bottom.
+    // Each page is a single narrow column of 3 values (factName nullptr marks
+    // an empty slot) so the 3 pages fit on one row without overlapping.
     struct AirshipIVD {
         const char *group;
         const char *factName;
@@ -309,45 +311,27 @@ void QGCCorePlugin::_createAirshipPagedDefaultSettings(FactValueGrid *factValueG
         const char *text;
     };
 
-    static constexpr AirshipIVD kPages[3][2][3] = {
+    static constexpr AirshipIVD kPages[3][3] = {
         // Page 0: flight core
         {
-            {
-                {"Vehicle", "AltitudeRelative", "arrow-thick-up.svg", nullptr},
-                {"Vehicle", "ClimbRate", "arrow-simple-up.svg", nullptr},
-                {"Vehicle", "Heading", nullptr, nullptr},
-            },
-            {
-                {"Vehicle", "GroundSpeed", "arrow-simple-right.svg", nullptr},
-                {"Vehicle", "FlightTime", "timer.svg", nullptr},
-                {"Vehicle", "DistanceToHome", "bookmark copy 3.svg", nullptr},
-            },
+            {"Vehicle", "AltitudeRelative", "arrow-thick-up.svg", nullptr},
+            {"Vehicle", "ClimbRate", "arrow-simple-up.svg", nullptr},
+            {"Vehicle", "Heading", nullptr, nullptr},
         },
         // Page 1: buoyancy / attitude
+        // ballast FactGroup 为 PX4 五字段契约（03_interfaces.md §5）：
+        // NetBuoyancy/BallastMass/AltitudeError/BlowerDuty/ValveState，四囊同步无左右之分。
+        // 每页单列只取 3 个核心，其余浮力字段仍在左下浮力 HUD 完整展示。
         {
-            {
-                {"ballast", "NetBuoyancy", nullptr, nullptr},
-                {"ballast", "AltitudeError", nullptr, nullptr},
-                {"Vehicle", "Roll", nullptr, nullptr},
-            },
-            {
-                {"Vehicle", "Pitch", nullptr, nullptr},
-                {"ballast", "BlowerLeft", nullptr, nullptr},
-                {"ballast", "BlowerRight", nullptr, nullptr},
-            },
+            {"ballast", "NetBuoyancy", nullptr, nullptr},
+            {"ballast", "BallastMass", nullptr, nullptr},
+            {"Vehicle", "Roll", nullptr, nullptr},
         },
         // Page 2: energy / mission
         {
-            {
-                {"Vehicle", "AltitudeAMSL", "arrow-thick-up.svg", nullptr},
-                {"Vehicle", "FlightDistance", "travel-walk.svg", nullptr},
-                {nullptr, nullptr, nullptr, nullptr},
-            },
-            {
-                {"Vehicle", "ThrottlePct", nullptr, "Thr"},
-                {"Vehicle", "AirSpeed", nullptr, "AirSpd"},
-                {nullptr, nullptr, nullptr, nullptr},
-            },
+            {"Vehicle", "AltitudeAMSL", "arrow-thick-up.svg", nullptr},
+            {"Vehicle", "ThrottlePct", nullptr, "Thr"},
+            {"Vehicle", "AirSpeed", nullptr, "AirSpd"},
         },
     };
 
@@ -356,49 +340,79 @@ void QGCCorePlugin::_createAirshipPagedDefaultSettings(FactValueGrid *factValueG
         pageIndex = kPageCount - 1;
     }
 
-    constexpr int kColCount = 2;
     constexpr int kMaxRows = 3;
     int rowCount = 0;
-    for (int c = 0; c < kColCount; c++) {
-        int r = 0;
-        while (r < kMaxRows && kPages[pageIndex][c][r].factName != nullptr) {
-            r++;
+    for (int r = 0; r < kMaxRows; r++) {
+        if (kPages[pageIndex][r].factName != nullptr) {
+            rowCount = r + 1;
         }
-        rowCount = (r > rowCount) ? r : rowCount;
     }
 
-    factValueGrid->setFontSize(FactValueGrid::MediumFontSize);
+    // Single narrow column per page so the 3 pages sit side by side.
+    factValueGrid->setMaxColumns(1);
+    factValueGrid->setMaxRows(3);
+    factValueGrid->setFontSize(FactValueGrid::SmallFontSize);
+    // appendColumn() 已给第 1 列 1 个 IVD（rowCount=1），需再 appendRow rowCount-1 次。
     (void) factValueGrid->appendColumn();
-    (void) factValueGrid->appendColumn();
-    // appendColumn 已给每列 1 IVD（_rowCount=1），需再 appendRow rowCount-1 次达到目标行数
     for (int r = 0; r < rowCount - 1; r++) {
         factValueGrid->appendRow();
     }
 
-    for (int c = 0; c < kColCount; c++) {
-        QmlObjectListModel *column = factValueGrid->columns()->value<QmlObjectListModel *>(c);
-        for (int r = 0; r < rowCount; r++) {
-            const AirshipIVD &ivd = kPages[pageIndex][c][r];
-            if (ivd.factName == nullptr) {
-                continue;
-            }
-            InstrumentValueData *value = column->value<InstrumentValueData *>(r);
-            value->setFact(QString::fromLatin1(ivd.group), QString::fromLatin1(ivd.factName));
-            if (ivd.icon) {
-                value->setIcon(QString::fromLatin1(ivd.icon));
-            }
-            if (ivd.text) {
-                value->setText(QString::fromLatin1(ivd.text));
-            } else if (value->fact()) {
-                value->setText(value->fact()->shortDescription());
-            }
-            value->setShowUnits(true);
+    QmlObjectListModel *column = factValueGrid->columns()->value<QmlObjectListModel *>(0);
+    for (int r = 0; r < rowCount; r++) {
+        const AirshipIVD &ivd = kPages[pageIndex][r];
+        InstrumentValueData *value = column->value<InstrumentValueData *>(r);
+        value->setFact(QString::fromLatin1(ivd.group), QString::fromLatin1(ivd.factName));
+        if (ivd.icon) {
+            value->setIcon(QString::fromLatin1(ivd.icon));
+        }
+        if (ivd.text) {
+            value->setText(QString::fromLatin1(ivd.text));
+        } else if (value->fact()) {
+            value->setText(value->fact()->shortDescription());
+        }
+        value->setShowUnits(true);
+    }
+}
+
+void QGCCorePlugin::_migrateAirshipPagedTelemetrySettings(void)
+{
+    // One-shot migration: remove AirshipInstr.Page* groups saved before the
+    // airship-specific paged default layout existed. FactValueGrid loads
+    // existing settings in preference to creating defaults, so those stale
+    // groups (generic default cells) would shadow the airship layout forever.
+    QSettings settings;
+    // V2: airship defaults previously shadowed by generic saved layouts.
+    // V3: UI reworked to fixed 3 pages with grid size limits; clear layouts
+    //     saved during the unlimited-grid editing period.
+    // V4: settingsGroup now arrives late through chained QML aliases; layouts
+    //     saved while the plugin default injection was bypassed (generic
+    //     defaults on all three pages) are cleared once more.
+    // V5: pages switched from stacked SwipeView to side-by-side single-column
+    //     layout; clear the 2-column layouts saved under the old design.
+    // V6: restore factory default sets (user-edited layouts, e.g. a dropped
+    //     ClimbRate cell on the flight-core page, are discarded).
+    static const QLatin1String kMigrationKey("AirshipPagedDefaultsV6");
+    if (settings.value(kMigrationKey, false).toBool()) {
+        return;
+    }
+    settings.setValue(kMigrationKey, true);
+    const QStringList groups = settings.childGroups();
+    for (const QString &group : groups) {
+        if (group.startsWith(QLatin1String("AirshipInstr.Page"))) {
+            settings.remove(group);
         }
     }
+    settings.sync();
 }
 
 QQmlApplicationEngine *QGCCorePlugin::createQmlApplicationEngine(QObject *parent)
 {
+    // Must run before any QML page loads: FactValueGrid prefers existing
+    // settings over creating defaults, so stale AirshipInstr.Page* groups
+    // saved before the airship default layout existed would shadow it forever.
+    _migrateAirshipPagedTelemetrySettings();
+
     QQmlApplicationEngine *const qmlEngine = new QQmlApplicationEngine(parent);
     qmlEngine->addImportPath(QStringLiteral("qrc:/qml"));
     qmlEngine->rootContext()->setContextProperty(QStringLiteral("joystickManager"), JoystickManager::instance());

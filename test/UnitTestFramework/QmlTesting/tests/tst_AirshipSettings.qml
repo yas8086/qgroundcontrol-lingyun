@@ -14,14 +14,6 @@ import QGroundControl
 TestCase {
     name: "AirshipSettingsTest"
 
-    function test_airshipInstrumentPageCount_default() {
-        if (typeof QGroundControl === "undefined") {
-            skip("QGroundControl singleton not available in QGCQmlQuickTests process")
-        }
-        var f = QGroundControl.settingsManager.flyViewSettings.airshipInstrumentPageCount
-        compare(f.rawValue, 3, "default page count is 3")
-    }
-
     function test_airshipShowTelemetryBar_default() {
         if (typeof QGroundControl === "undefined") {
             skip("QGroundControl singleton not available in QGCQmlQuickTests process")

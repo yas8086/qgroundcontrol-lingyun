@@ -228,6 +228,7 @@ private:
     void _setShowTouchAreas(bool show);
     void _setShowAdvancedUI(bool show);
     void _createAirshipPagedDefaultSettings(FactValueGrid *factValueGrid);
+    void _migrateAirshipPagedTelemetrySettings(void);
 
     QGCOptions *_defaultOptions = nullptr;
     QmlObjectListModel *_emptyCustomMapItems = nullptr;
