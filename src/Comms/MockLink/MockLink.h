@@ -387,10 +387,12 @@ private:
 
     static std::atomic<int> _nextVehicleSystemId;
 
-    // Vehicle position is set close to default Gazebo vehicle location. This allows for multi-vehicle
-    // testing of a gazebo vehicle and a mocklink vehicle
-    static constexpr double _defaultVehicleLatitude = 47.397;
-    static constexpr double _defaultVehicleLongitude = 8.5455;
+    // Vehicle position defaults to the Lingyun airship test site (Guangxi, China).
+    // NOTE: lat/lon order matters - QGeoCoordinate latitude must stay within
+    // [-90, +90], so 108.395056 is the LONGITUDE here. Multi-vehicle offsets
+    // are still applied per sysid (see MockLink.cc constructor).
+    static constexpr double _defaultVehicleLatitude = 22.71235;
+    static constexpr double _defaultVehicleLongitude = 108.395056;
     static constexpr double _defaultVehicleHomeAltitude = 488.056;
 
     static constexpr const char *_failParam = "COM_FLTMODE6";
