@@ -56,7 +56,10 @@ ColumnLayout {
     QGCLabel {
         Layout.alignment:   Qt.AlignVCenter
         height:             _tightHeight
-        font.pointSize:     ScreenTools.smallFontPointSize
+        // Follow the grid fontSize setting so labels scale together with values
+        // (previously hardcoded to small, which left labels tiny when the user
+        // selected a larger font size for the telemetry panels).
+        font.pointSize:     _rgFontSizes[instrumentValueData.factValueGrid.fontSize]
         text:               instrumentValueData.text
         color:              _color
         opacity:            instrumentValueData.currentOpacity

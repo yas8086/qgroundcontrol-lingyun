@@ -351,7 +351,7 @@ void QGCCorePlugin::_createAirshipPagedDefaultSettings(FactValueGrid *factValueG
     // Single narrow column per page so the 3 pages sit side by side.
     factValueGrid->setMaxColumns(1);
     factValueGrid->setMaxRows(3);
-    factValueGrid->setFontSize(FactValueGrid::SmallFontSize);
+    factValueGrid->setFontSize(FactValueGrid::LargeFontSize);
     // appendColumn() 已给第 1 列 1 个 IVD（rowCount=1），需再 appendRow rowCount-1 次。
     (void) factValueGrid->appendColumn();
     for (int r = 0; r < rowCount - 1; r++) {
@@ -392,7 +392,9 @@ void QGCCorePlugin::_migrateAirshipPagedTelemetrySettings(void)
     //     layout; clear the 2-column layouts saved under the old design.
     // V6: restore factory default sets (user-edited layouts, e.g. a dropped
     //     ClimbRate cell on the flight-core page, are discarded).
-    static const QLatin1String kMigrationKey("AirshipPagedDefaultsV6");
+    // V8: increase value font size to LargeFontSize; clear fontSize/rowHeight
+    //     persisted by earlier builds so the new size takes effect.
+    static const QLatin1String kMigrationKey("AirshipPagedDefaultsV8");
     if (settings.value(kMigrationKey, false).toBool()) {
         return;
     }
