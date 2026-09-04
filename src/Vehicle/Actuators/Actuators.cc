@@ -285,6 +285,22 @@ void Actuators::updateFunctionMetadata()
     _usedMixerLabels = usedMixerLabels;
 
     // Get the unused mixer functions
+    // Functions currently assigned to any output channel must never be removed,
+    // otherwise the UI shows "Unknown: N" for in-use outputs (e.g. when firmware
+    // metadata under-reports the function range of an actuator type).
+    QSet<int> assignedFunctions;
+    for (int groupIdx = 0; groupIdx < _actuatorOutputs->count(); groupIdx++) {
+        ActuatorOutput *group = qobject_cast<ActuatorOutput *>(_actuatorOutputs->get(groupIdx));
+        group->forEachOutputFunction([&assignedFunctions](
+                                             [[maybe_unused]] ActuatorOutputSubgroup *subgroup,
+                                             [[maybe_unused]] ChannelConfigInstance *configInstance, Fact *fact) {
+            const int assignedFunction = fact->rawValue().toInt();
+            if (assignedFunction != 0) {
+                assignedFunctions.insert(assignedFunction);
+            }
+        });
+    }
+
     QSet<int> removedMixerFunctions;
     for(Mixer::ActuatorTypes::const_iterator iter = _mixer.actuatorTypes().constBegin();
             iter != _mixer.actuatorTypes().constEnd(); ++iter) {
@@ -292,7 +308,7 @@ void Actuators::updateFunctionMetadata()
             continue;
 
         for (int i = iter.value().functionMin; i <= iter.value().functionMax; ++i) {
-            if (!usedMixerFunctions.contains(i)) {
+            if (!usedMixerFunctions.contains(i) && !assignedFunctions.contains(i)) {
                 removedMixerFunctions.insert(i);
             }
         }

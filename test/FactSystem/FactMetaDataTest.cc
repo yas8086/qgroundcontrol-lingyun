@@ -6,6 +6,7 @@
 #include <limits>
 
 #include "FactMetaData.h"
+#include "Fact.h"
 
 void FactMetaDataTest::_stringToTypeRoundTrip_test()
 {
@@ -315,6 +316,82 @@ void FactMetaDataTest::_setMinMax_test()
     QCOMPARE(meta.rawMax().toInt(), 10);
     QVERIFY(!meta.minIsDefaultForType());
     QVERIFY(!meta.maxIsDefaultForType());
+}
+
+// Reproduce the Lingyun01 firmware issue: output function value 201 (Blower1)
+// was reported to render as "Unknown: 201" while 202-208 (Valve1..Valve4)
+// render fine. The json below mirrors the real parameters.json served by the
+// vehicle (see docs/lingyun/问题/QGC渲染bug报告_功能201显示为Unknown.md).
+void FactMetaDataTest::_jsonEnumParsingBlower_test()
+{
+    static const QList<QPair<QString, int>> kValues = {
+        {"Disabled", 0},
+        {"Constant Min", 1},
+        {"Constant Max", 2},
+        {"Motor 1", 101}, {"Motor 2", 102}, {"Motor 3", 103}, {"Motor 4", 104},
+        {"Motor 5", 105}, {"Motor 6", 106}, {"Motor 7", 107}, {"Motor 8", 108},
+        {"Motor 9", 109}, {"Motor 10", 110}, {"Motor 11", 111}, {"Motor 12", 112},
+        {"Blower1", 201}, {"Valve1", 202}, {"Blower2", 203}, {"Valve2", 204},
+        {"Blower3", 205}, {"Valve3", 206}, {"Blower4", 207}, {"Valve4", 208},
+        {"Peripheral via Actuator Set 1", 301},
+        {"Peripheral via Actuator Set 2", 302},
+        {"Peripheral via Actuator Set 3", 303},
+        {"Peripheral via Actuator Set 4", 304},
+        {"Peripheral via Actuator Set 5", 305},
+        {"Peripheral via Actuator Set 6", 306},
+        {"Landing Gear", 400},
+        {"Parachute", 401},
+        {"RC Roll", 402}, {"RC Pitch", 403}, {"RC Throttle", 404}, {"RC Yaw", 405},
+        {"RC Flaps", 406}, {"RC Aux 1", 407}, {"RC Aux 2", 408},
+        {"RC Aux 3", 409}, {"RC Aux 4", 410}, {"RC Aux 5", 411}, {"RC Aux 6", 412},
+        {"Gimbal Roll", 420}, {"Gimbal Pitch", 421}, {"Gimbal Yaw", 422},
+        {"Gripper", 430}, {"Landing Gear Wheel", 440},
+        {"Roll", 450}, {"Pitch", 451}, {"Yaw", 452}, {"Elevation", 453},
+        {"Camera Trigger", 2000}, {"Camera Capture", 2032},
+        {"PPS Input", 2064}, {"RPM Input", 2070},
+    };
+
+    QJsonObject paramJson;
+    paramJson["name"] = "PWM_MAIN_FUNC1";
+    paramJson["type"] = "Int32";
+    paramJson["shortDesc"] = "PWM Main 1 Output Function";
+    paramJson["group"] = "Actuator Outputs";
+    paramJson["category"] = "Standard";
+    paramJson["default"] = 0;
+
+    QJsonArray valuesArray;
+    for (const auto &[description, value] : kValues) {
+        QJsonObject entry;
+        entry["description"] = description;
+        entry["value"] = value;
+        valuesArray.append(entry);
+    }
+    paramJson["values"] = valuesArray;
+
+    FactMetaData *meta = FactMetaData::createFromJsonObject(paramJson, {}, this);
+    QVERIFY(meta);
+
+    QCOMPARE(meta->enumStrings().count(), kValues.count());
+    QCOMPARE(meta->enumValues().count(), kValues.count());
+
+    // Every value must survive parsing, especially 201 (Blower1)
+    for (const auto &[description, value] : kValues) {
+        const int index = meta->enumValues().indexOf(QVariant(value));
+        QVERIFY2(index >= 0, qPrintable(QStringLiteral("enum value %1 (%2) missing").arg(value).arg(description)));
+        QCOMPARE(meta->enumStrings()[index], description);
+    }
+
+    // Fact-level check: rawValue 201 (int32) must resolve to "Blower1", not "Unknown: 201"
+    Fact fact(0 /* componentId */, QStringLiteral("PWM_MAIN_FUNC1"), FactMetaData::valueTypeInt32, this);
+    fact.setMetaData(meta);
+    fact.setRawValue(QVariant(201));
+    QCOMPARE(fact.enumIndex(), meta->enumValues().indexOf(QVariant(201)));
+    QCOMPARE(fact.enumStringValue(), QStringLiteral("Blower1"));
+
+    // Also verify the QVariant type-coercion comparison used by Fact::enumIndex
+    QVERIFY(QVariant(201) == QVariant(201.0));  // int vs double
+    QVERIFY(QVariant(201) == QVariant(201.0f)); // int vs float
+    QVERIFY(QVariant(201) == QVariant(201u));   // int vs uint
 }
 
 UT_REGISTER_TEST(FactMetaDataTest, TestLabel::Unit)

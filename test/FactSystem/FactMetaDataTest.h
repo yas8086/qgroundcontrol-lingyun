@@ -28,4 +28,5 @@ private slots:
     void _builtInTranslatorCentiDegrees_test();
     void _builtInTranslatorNorm_test();
     void _setMinMax_test();
+    void _jsonEnumParsingBlower_test();
 };
