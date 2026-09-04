@@ -506,8 +506,8 @@ void MockLink::_sendSysStatus()
         _outgoingMavlinkChannel,
         &msg,
         MAV_SYS_STATUS_SENSOR_GPS,  // onboard_control_sensors_present
-        0,                          // onboard_control_sensors_enabled
-        0,                          // onboard_control_sensors_health
+        MAV_SYS_STATUS_SENSOR_GPS,  // onboard_control_sensors_enabled
+        MAV_SYS_STATUS_SENSOR_GPS,  // onboard_control_sensors_health
         250,                        // load
         4200 * 4,                   // voltage_battery
         8000,                       // current_battery
