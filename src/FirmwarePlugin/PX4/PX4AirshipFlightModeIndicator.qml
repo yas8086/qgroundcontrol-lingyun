@@ -16,8 +16,16 @@ ColumnLayout {
         id: controller
     }
 
+    QGCPalette { id: qgcPal; colorGroupEnabled: true }
+
     // 飞艇参数存在性检查
     property bool _paramsAvailable: controller.parameterExists(-1, "AS_TAKEOFF_ALT")
+
+    // 飞艇模式语义说明(与多旋翼差异, 见PX4文档06_qgc_dev_guide 1.3)
+    property string _flightMode:        _activeVehicle ? _activeVehicle.flightMode : ""
+    readonly property bool _isHoldOrRTL:    _flightMode === "Hold" || _flightMode === "RTL"
+    readonly property bool _isTakeoffMode:  _flightMode === "Takeoff"
+    readonly property bool _isLandMode:     _flightMode === "Land"
 
     // 速度与高度限制
     SettingsGroupLayout {
@@ -47,6 +55,44 @@ ColumnLayout {
             to: fact.max
         }
     }
+
+    // 模式语义说明(飞艇与多旋翼行为差异, 避免误解)
+    ColumnLayout {
+        spacing: ScreenTools.defaultFontPixelHeight / 4
+        Layout.fillWidth: true
+
+        QGCLabel {
+            Layout.fillWidth: true
+            text: qsTr("Airship Mode Semantics")
+            font.bold: true
+            visible: _paramsAvailable
+        }
+        // RTL/Loiter: 原地定高悬停, 不返航(06 1.3.1)
+        QGCLabel {
+            Layout.fillWidth:     true
+            visible:              _paramsAvailable && _isHoldOrRTL
+            text:                 qsTr("⏸ Hold/RTL: hovering in place at current altitude — the airship does NOT return home.")
+            wrapMode:             Text.WordWrap
+            color:                qgcPal.warningText
+        }
+        // Takeoff: 完成后自动切Loiter(06 1.3.4)
+        QGCLabel {
+            Layout.fillWidth:     true
+            visible:              _paramsAvailable && _isTakeoffMode
+            text:                 qsTr("▲ Takeoff: auto-switches to Loiter when complete.")
+            wrapMode:             Text.WordWrap
+            color:                qgcPal.warningText
+        }
+        // Land: 3m自动disarm(06 1.3.3)
+        QGCLabel {
+            Layout.fillWidth:     true
+            visible:              _paramsAvailable && _isLandMode
+            text:                 qsTr("▼ Land: auto-disarm at 3 m altitude.")
+            wrapMode:             Text.WordWrap
+            color:                qgcPal.warningText
+        }
+    }
+
 
     // 浮力控制状态
     SettingsGroupLayout {
