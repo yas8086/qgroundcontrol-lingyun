@@ -87,8 +87,12 @@ Rectangle {
 
                     // Outer summary item rectangle
                     Rectangle {
-                        width: mainLayout.width + (_margins * 2)
-                        height: mainLayout.height + (_margins * 2)
+                        // implicitWidth/implicitHeight, not width/height: the layout's
+                        // assigned size can briefly be smaller than the content during
+                        // load, which lets right-aligned values overflow under the next
+                        // card (seen on the Sensors summary with CJK labels).
+                        width: mainLayout.implicitWidth + (_margins * 2)
+                        height: mainLayout.implicitHeight + (_margins * 2)
                         color: qgcPal.windowShade
                         visible: modelData.summaryQmlSource.toString() !== ""
                         border.width: 1

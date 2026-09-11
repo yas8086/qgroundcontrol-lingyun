@@ -14,7 +14,11 @@ Column {
     property var snap:                isNaN(channel.defaultValue)
     property var span:                channel.max - channel.min
     property var snapRange:           span * 0.15
-    property var defaultVal:          snap ? channel.min - snapRange : channel.defaultValue
+    // 灵云01: 滑条默认一律停在最低(channel.min = 控制量-1 = 0us恒低安全位)
+    // 原逻辑 defaultVal=channel.defaultValue(0=中间=50%占空), 打开测试开关瞬间会立即输出中间值
+    // 贴底(snap 时停在 snap 区底部=from 位置): 视觉上贴滑条最低端, 语义为 NaN=停止,
+    // Timer 发 NaN → stopControl + stop() 回位仍在底部, 无弹跳
+    property var defaultVal:          snap ? channel.min - snapRange : channel.min
     property var blockUpdates:        true // avoid slider changes on startup
 
     id:                               root

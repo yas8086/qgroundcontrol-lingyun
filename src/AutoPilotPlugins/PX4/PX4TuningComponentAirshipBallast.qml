@@ -5,7 +5,6 @@ import QtQuick.Layouts
 import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FactControls
-import QGroundControl.ScreenTools
 
 // 飞艇浮力控制参数页（02_parameters.md §9/§10 分组契约）
 // 注意：V2 已删除 TRIM_BALLOON_* 全族（四囊同步，气囊不参与横滚）；
