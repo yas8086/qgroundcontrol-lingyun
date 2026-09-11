@@ -163,6 +163,14 @@ Item {
         z:                  QGroundControl.zOrderTopMost
     }
 
+    // 灵云01: att_control 内部 failsafe 悬停保护增强感知(仅 console 日志无 STATUSTEXT, 见 PX4 文档 06 §3)
+    AirshipFailsafeIndicator {
+        anchors.top:              parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.topMargin:        _toolsMargin * 3
+        z:                        QGroundControl.zOrderTopMost
+    }
+
     MapScale {
         id:                 mapScale
         anchors.left:       toolStrip.right
