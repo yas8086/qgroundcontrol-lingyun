@@ -5,8 +5,8 @@ import QtQuick.Layouts
 import QGroundControl
 import QGroundControl.Controls
 
-// 飞艇浮力控制 HUD 面板（PX4 五字段契约，03_interfaces.md §5）
-// 净浮力 / 单囊质量 / 风机占空比 / 阀门状态 / 高度误差
+// 飞艇浮力控制 HUD 面板（PX4 十五字段契约，03_interfaces.md §5 + 四囊压差/风机/阀门透出）
+// 汇总区：净浮力 / 囊质量 / 高度误差；四囊独立卡片：压差 + 风机占空比 + 阀门开关（2x2 按物理位置）
 // 通过 vehicle.ballast FactGroup 获取数据（NAMED_VALUE_FLOAT 消息）
 Rectangle {
     id:             root
@@ -21,9 +21,8 @@ Rectangle {
 
     property var    _activeVehicle:     globals.activeVehicle
     property real   _margins:           ScreenTools.defaultFontPixelWidth * 0.5
-    property real   _panelWidth:        ScreenTools.defaultFontPixelWidth * 28
-    property real   _barHeight:         ScreenTools.defaultFontPixelHeight * 0.6
-    property real   _barWidth:          _panelWidth - _margins * 4
+    property real   _panelWidth:        ScreenTools.defaultFontPixelWidth * 56
+    property real   _barHeight:         ScreenTools.defaultFontPixelHeight * 0.7
     property var    _ballast:           _activeVehicle ? _activeVehicle.ballast : null
     // 当前飞行模式（起飞/降落推进电机关闭指示）
     // 注意：Failsafe 为飞控内部态不反映到 nav_state（04_modes.md §3.3），此处不可检测
@@ -34,10 +33,167 @@ Rectangle {
     property bool   _propulsionOff:     _isTakeoff || _isLand
     // 单囊最大空气质量（BALLOON_M_MAX 代码默认 128.5kg，02_parameters.md §9）
     property real   _ballastMassMax:    128.5
-    // 超压告警近似推断：b_mass > M_MAX*95%（06_qgc_dev_guide.md §2.2）
-    property bool   _overpressure:      _ballast ? _ballast.ballastMass.value > _ballastMassMax * 0.95 : false
+    // 四囊压差（kPa）：LoRa传感器x4 → 树莓派 → uXRCE-DDS → 飞控透出 bal_p0~p3
+    // 压差数据未上线时 Fact 为 NaN（连接前/传感器从未有效）
+    property var    _pressureFacts:     _ballast ? [_ballast.bladderPressure0, _ballast.bladderPressure1,
+                                                     _ballast.bladderPressure2, _ballast.bladderPressure3] : []
+    property bool   _pressureValid:     _ballast ? !isNaN(_ballast.bladderPressure0.value)
+                                                 || !isNaN(_ballast.bladderPressure1.value)
+                                                 || !isNaN(_ballast.bladderPressure2.value)
+                                                 || !isNaN(_ballast.bladderPressure3.value) : false
+    // 超压告警：优先真实压差（任一囊 > 4.75 kPa，验证指南 §5.2）；
+    // 压差数据全无效时回退 b_mass > M_MAX*95% 近似推断（06_qgc_dev_guide.md §2.2）
+    property bool   _overpressure:      _pressureValid ? _anyPressureOverLimit()
+                                                       : (_ballast ? _ballast.ballastMass.value > _ballastMassMax * 0.95 : false)
+    // 四囊不平衡（全部有效且 max-min > 0.5 kPa，飞控同步告警 bladder imbalance）
+    property bool   _bladderImbalance:  _ballast && _allPressuresValid() ? _pressureSpread() > 0.5 : false
+
+    function _anyPressureOverLimit() {
+        for (var i = 0; i < _pressureFacts.length; i++) {
+            var v = _pressureFacts[i].value
+            if (!isNaN(v) && v > 4.75) return true
+        }
+        return false
+    }
+    function _allPressuresValid() {
+        for (var i = 0; i < _pressureFacts.length; i++) {
+            if (isNaN(_pressureFacts[i].value)) return false
+        }
+        return true
+    }
+    function _pressureSpread() {
+        var mn = Infinity, mx = -Infinity
+        for (var i = 0; i < _pressureFacts.length; i++) {
+            var v = _pressureFacts[i].value
+            mn = Math.min(mn, v); mx = Math.max(mx, v)
+        }
+        return mx - mn
+    }
 
     QGCPalette { id: qgcPal; colorGroupEnabled: enabled }
+
+    // 单囊独立卡片：压差 + 风机占空比 + 阀门开关（数据无效 NaN 时显示 "—"）
+    // 文件内 inline 组件（非 Loader/Repeater，避免动态作用域注入失效）
+    // 统一样式进度条: 暗色轨道 + 白色进度(无数据时值为0, 白条为空、灰色轨道占满, 视觉为"空槽"状态)
+    component AirshipBar: ProgressBar {
+        id:         _bar
+        height:     _barHeight
+        background: Rectangle {
+            implicitWidth:  _bar.width
+            implicitHeight: _barHeight
+            color:          "#40FFFFFF"
+            radius:         2
+        }
+        contentItem: Item {
+            implicitHeight: _barHeight
+            Rectangle {
+                width:  _bar.visualPosition * _bar.availableWidth
+                height: parent.height
+                color:  "#FFFFFF"
+                radius: 2
+            }
+        }
+    }
+
+    component BladderCard: Rectangle {
+        id:                 card
+        property string     cardTitle:     ""
+        property int        bladderIndex:  0       // 囊序号 0~3，用于标注协议字段名 bal_pN/blowerN/valveN
+        property var        pressureFact: null
+        property var        blowerFact:   null
+        property var        valveFact:    null
+        property bool       pressureHigh: pressureFact && !isNaN(pressureFact.value) && pressureFact.value > 4.75
+
+        Layout.fillWidth:   true
+        implicitHeight:     cardColumn.implicitHeight + (_margins * 2)
+        color:              qgcPal.windowShade
+        radius:             ScreenTools.defaultFontPixelHeight * 0.2
+
+        ColumnLayout {
+            id:             cardColumn
+            anchors.top:        parent.top
+            anchors.left:      parent.left
+            anchors.right:     parent.right
+            anchors.margins:   _margins
+            spacing:        _margins * 0.5
+
+            // 囊名称（按物理位置）
+            QGCLabel {
+                text:               card.cardTitle
+                font.bold:          true
+                font.pointSize:     ScreenTools.largeFontPointSize
+            }
+
+            // 压差（kPa，0~5 正常区间，>4.75 超压数值变红）
+            RowLayout {
+                Layout.fillWidth: true
+                QGCLabel { text: qsTr("压差") }
+                QGCLabel {
+                    text:           "(bal_p" + card.bladderIndex + ")"
+                    font.pointSize: ScreenTools.smallFontPointSize
+                    opacity:        0.6
+                }
+                Item { Layout.fillWidth: true }
+                QGCLabel {
+                    text:               card.pressureFact && !isNaN(card.pressureFact.value) ? card.pressureFact.value.toFixed(2) + " kPa" : "—"
+                    font.pointSize:     ScreenTools.largeFontPointSize
+                    color:              card.pressureHigh ? qgcPal.colorRed : qgcPal.text
+                }
+            }
+            AirshipBar {
+                Layout.fillWidth: true
+                from:   0
+                to:     5
+                value:  card.pressureFact && !isNaN(card.pressureFact.value) ? card.pressureFact.value : 0
+            }
+
+            // 风机占空比（0-100%，0=停）
+            RowLayout {
+                Layout.fillWidth: true
+                QGCLabel { text: qsTr("风机") }
+                QGCLabel {
+                    text:           "(blower" + card.bladderIndex + ")"
+                    font.pointSize: ScreenTools.smallFontPointSize
+                    opacity:        0.6
+                }
+                Item { Layout.fillWidth: true }
+                QGCLabel {
+                    text:           card.blowerFact && !isNaN(card.blowerFact.value) ? card.blowerFact.value.toFixed(0) + " %" : "—"
+                    font.pointSize: ScreenTools.largeFontPointSize
+                }
+            }
+            AirshipBar {
+                Layout.fillWidth: true
+                from:   0
+                to:     100
+                value:  card.blowerFact && !isNaN(card.blowerFact.value) ? card.blowerFact.value : 0
+            }
+
+            // 阀门（0=关 / 100=开，常闭阀）
+            RowLayout {
+                Layout.fillWidth: true
+                QGCLabel { text: qsTr("阀门") }
+                QGCLabel {
+                    text:           "(valve" + card.bladderIndex + ")"
+                    font.pointSize: ScreenTools.smallFontPointSize
+                    opacity:        0.6
+                }
+                Item { Layout.fillWidth: true }
+                Rectangle {
+                    width:              ScreenTools.defaultFontPixelHeight * 0.5
+                    height:             width
+                    radius:             width / 2
+                    color:              card.valveFact && !isNaN(card.valveFact.value) && card.valveFact.value > 50 ? "#4CAF50" : qgcPal.button
+                    border.color:       qgcPal.text
+                    border.width:       1
+                }
+                QGCLabel {
+                    text:           card.valveFact && !isNaN(card.valveFact.value) ? (card.valveFact.value > 50 ? qsTr("开") : qsTr("关")) : "—"
+                    font.pointSize: ScreenTools.largeFontPointSize
+                }
+            }
+        }
+    }
 
     ColumnLayout {
         id:                 _column
@@ -53,13 +209,13 @@ Rectangle {
             spacing: _margins
 
             QGCLabel {
-                text: qsTr("Ballast Control")
-                font.bold: true
-                font.pointSize: ScreenTools.smallFontPointSize
+                text:               qsTr("气囊浮力监控")
+                font.bold:          true
+                font.pointSize:     ScreenTools.largeFontPointSize
             }
             Item { Layout.fillWidth: true }
 
-            // 超压告警（b_mass > M_MAX*95% 近似推断）
+            // 超压告警（任一囊压差 > 4.75 kPa 或 b_mass > M_MAX*95% 近似推断）
             Rectangle {
                 visible: _overpressure
                 color: "#F44336"
@@ -73,7 +229,6 @@ Rectangle {
                     text: qsTr("超压")
                     color: "white"
                     font.bold: true
-                    font.pointSize: ScreenTools.smallFontPointSize
                 }
             }
 
@@ -91,7 +246,6 @@ Rectangle {
                     text: qsTr("浮力平衡")
                     color: "white"
                     font.bold: true
-                    font.pointSize: ScreenTools.smallFontPointSize
                 }
             }
         }
@@ -117,7 +271,6 @@ Rectangle {
                     text: qsTr("▲ 起飞中")
                     color: "white"
                     font.bold: true
-                    font.pointSize: ScreenTools.smallFontPointSize
                 }
                 // 降落状态
                 QGCLabel {
@@ -125,38 +278,65 @@ Rectangle {
                     text: qsTr("▼ 降落中")
                     color: "white"
                     font.bold: true
-                    font.pointSize: ScreenTools.smallFontPointSize
                 }
                 // 推进电机关闭指示（起飞/降落模式）
                 QGCLabel {
                     visible: _propulsionOff
                     text: qsTr("推进电机: OFF")
                     color: "white"
-                    font.pointSize: ScreenTools.smallFontPointSize
                 }
             }
         }
 
-        // 净浮力
+        // 汇总：净浮力 / 高度误差（两列）
         RowLayout {
             Layout.fillWidth: true
-            spacing: _margins
+            spacing: _margins * 2
 
-            QGCLabel {
-                text: qsTr("Net Buoyancy")
-                font.pointSize: ScreenTools.smallFontPointSize
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: _margins
+
+                QGCLabel {
+                    text: qsTr("净浮力")
+                }
+                QGCLabel {
+                    text:           "(buoy)"
+                    font.pointSize: ScreenTools.smallFontPointSize
+                    opacity:        0.6
+                }
+                Item { Layout.fillWidth: true }
+                QGCLabel {
+                    text:           _ballast ? _ballast.netBuoyancy.value.toFixed(1) + " N" : "—"
+                    font.pointSize: ScreenTools.largeFontPointSize
+                    color: _ballast ? (_ballast.netBuoyancy.value > 0.5 ? qgcPal.colorOrange
+                                    : _ballast.netBuoyancy.value < -0.5 ? qgcPal.colorRed
+                                    : qgcPal.text) : qgcPal.text
+                }
             }
-            Item { Layout.fillWidth: true }
-            QGCLabel {
-                text: _ballast ? _ballast.netBuoyancy.value.toFixed(1) + " N" : "—"
-                font.pointSize: ScreenTools.smallFontPointSize
-                color: _ballast ? (_ballast.netBuoyancy.value > 0.5 ? qgcPal.colorOrange
-                                : _ballast.netBuoyancy.value < -0.5 ? qgcPal.colorRed
-                                : qgcPal.text) : qgcPal.text
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: _margins
+
+                QGCLabel {
+                    text: qsTr("高度误差")
+                }
+                QGCLabel {
+                    text:           "(alt_err)"
+                    font.pointSize: ScreenTools.smallFontPointSize
+                    opacity:        0.6
+                }
+                Item { Layout.fillWidth: true }
+                QGCLabel {
+                    text:           _ballast ? _ballast.altitudeError.value.toFixed(1) + " m" : "—"
+                    font.pointSize: ScreenTools.largeFontPointSize
+                    color: _ballast ? (Math.abs(_ballast.altitudeError.value) > 2.0 ? qgcPal.colorOrange : qgcPal.text) : qgcPal.text
+                }
             }
         }
 
-        // 单囊空气质量（0 ~ BALLOON_M_MAX）
+        // 囊质量（0 ~ BALLOON_M_MAX）
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 0
@@ -164,88 +344,92 @@ Rectangle {
             RowLayout {
                 Layout.fillWidth: true
                 QGCLabel {
-                    text: qsTr("Ballast Mass")
+                    text: qsTr("囊质量")
+                }
+                QGCLabel {
+                    text:           "(b_mass)"
                     font.pointSize: ScreenTools.smallFontPointSize
+                    opacity:        0.6
                 }
                 Item { Layout.fillWidth: true }
                 QGCLabel {
-                    text: _ballast ? _ballast.ballastMass.value.toFixed(1) + " kg" : "—"
-                    font.pointSize: ScreenTools.smallFontPointSize
+                    text:           _ballast ? _ballast.ballastMass.value.toFixed(1) + " kg" : "—"
+                    font.pointSize: ScreenTools.largeFontPointSize
                     color: _overpressure ? qgcPal.colorRed : qgcPal.text
                 }
             }
-            ProgressBar {
+            AirshipBar {
                 Layout.fillWidth: true
                 from: 0; to: _ballastMassMax
-                value: _ballast ? _ballast.ballastMass.value : 0
-                height: _barHeight
+                value: _ballast && !isNaN(_ballast.ballastMass.value) ? _ballast.ballastMass.value : 0
             }
         }
 
-        // 风机占空比（0-255）
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 0
-
-            RowLayout {
-                Layout.fillWidth: true
-                QGCLabel {
-                    text: qsTr("Blower")
-                    font.pointSize: ScreenTools.smallFontPointSize
-                }
-                Item { Layout.fillWidth: true }
-                QGCLabel {
-                    text: _ballast ? (_ballast.blowerDuty.value / 255 * 100).toFixed(0) + "%" : "—"
-                    font.pointSize: ScreenTools.smallFontPointSize
-                }
-            }
-            ProgressBar {
-                Layout.fillWidth: true
-                from: 0; to: 255
-                value: _ballast ? _ballast.blowerDuty.value : 0
-                height: _barHeight
-            }
-        }
-
-        // 阀门状态（0=关 / 255=开，常闭阀）
+        // 四囊独立状态区标题（2x2 按物理位置排布：上行左副/左主，下行右主/右副）
         RowLayout {
             Layout.fillWidth: true
             spacing: _margins
 
             QGCLabel {
-                text: qsTr("Valve")
-                font.pointSize: ScreenTools.smallFontPointSize
+                text:               qsTr("四囊状态")
+                font.bold:          true
+                font.pointSize:     ScreenTools.largeFontPointSize
             }
             Item { Layout.fillWidth: true }
-            // 阀门状态灯
+            // 四囊不平衡指示（max-min > 0.5kPa，飞控同步输出 bladder imbalance 告警）
             Rectangle {
-                width: ScreenTools.defaultFontPixelHeight * 0.5
-                height: width
-                radius: width / 2
-                color: (_ballast && _ballast.valveState.value > 127) ? "#4CAF50" : qgcPal.button
-                border.color: qgcPal.text
-                border.width: 1
-            }
-            QGCLabel {
-                text: (_ballast && _ballast.valveState.value > 127) ? qsTr("Open") : qsTr("Closed")
-                font.pointSize: ScreenTools.smallFontPointSize
+                visible: root._bladderImbalance
+                color: "#FF9800"
+                radius: ScreenTools.defaultFontPixelHeight * 0.2
+                implicitWidth: _imbalanceLabel.implicitWidth + _margins * 2
+                implicitHeight: _imbalanceLabel.implicitHeight + _margins * 0.5
+                QGCLabel {
+                    id: _imbalanceLabel
+                    anchors.centerIn: parent
+                    text: qsTr("不平衡")
+                    color: "white"
+                    font.bold: true
+                }
             }
         }
 
-        // 高度误差
-        RowLayout {
+        // 四囊独立卡片（压差 + 风机 + 阀门）
+        GridLayout {
             Layout.fillWidth: true
-            spacing: _margins
+            columns: 2
+            columnSpacing: _margins
+            rowSpacing: _margins
 
-            QGCLabel {
-                text: qsTr("Alt Error")
-                font.pointSize: ScreenTools.smallFontPointSize
+            BladderCard {
+                cardTitle:     qsTr("左副囊")
+                bladderIndex:  0
+                pressureFact: root._ballast ? root._ballast.bladderPressure0 : null
+                blowerFact:   root._ballast ? root._ballast.blower0 : null
+                valveFact:    root._ballast ? root._ballast.valve0 : null
             }
-            Item { Layout.fillWidth: true }
-            QGCLabel {
-                text: _ballast ? _ballast.altitudeError.value.toFixed(1) + " m" : "—"
-                font.pointSize: ScreenTools.smallFontPointSize
-                color: _ballast ? (Math.abs(_ballast.altitudeError.value) > 2.0 ? qgcPal.colorOrange : qgcPal.text) : qgcPal.text
+
+            BladderCard {
+                cardTitle:     qsTr("左主囊")
+                bladderIndex:  1
+                pressureFact: root._ballast ? root._ballast.bladderPressure1 : null
+                blowerFact:   root._ballast ? root._ballast.blower1 : null
+                valveFact:    root._ballast ? root._ballast.valve1 : null
+            }
+
+            BladderCard {
+                cardTitle:     qsTr("右主囊")
+                bladderIndex:  2
+                pressureFact: root._ballast ? root._ballast.bladderPressure2 : null
+                blowerFact:   root._ballast ? root._ballast.blower2 : null
+                valveFact:    root._ballast ? root._ballast.valve2 : null
+            }
+
+            BladderCard {
+                cardTitle:     qsTr("右副囊")
+                bladderIndex:  3
+                pressureFact: root._ballast ? root._ballast.bladderPressure3 : null
+                blowerFact:   root._ballast ? root._ballast.blower3 : null
+                valveFact:    root._ballast ? root._ballast.valve3 : null
             }
         }
     }
