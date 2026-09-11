@@ -308,30 +308,32 @@ void QGCCorePlugin::_createAirshipPagedDefaultSettings(FactValueGrid *factValueG
         const char *group;
         const char *factName;
         const char *icon;
-        const char *text;
+        // u8 literals keep the Chinese labels UTF-8 encoded on all compilers
+        // (plain narrow literals would be interpreted as ACP on MSVC).
+        const char8_t *text;
     };
 
     static constexpr AirshipIVD kPages[3][3] = {
         // Page 0: flight core
         {
-            {"Vehicle", "AltitudeRelative", "arrow-thick-up.svg", nullptr},
-            {"Vehicle", "ClimbRate", "arrow-simple-up.svg", nullptr},
-            {"Vehicle", "Heading", nullptr, nullptr},
+            {"Vehicle", "AltitudeRelative", "arrow-thick-up.svg", u8"相对高度"},
+            {"Vehicle", "ClimbRate", "arrow-simple-up.svg", u8"爬升率"},
+            {"Vehicle", "Heading", nullptr, u8"航向"},
         },
         // Page 1: buoyancy / attitude
-        // ballast FactGroup 为 PX4 五字段契约（03_interfaces.md §5）：
-        // NetBuoyancy/BallastMass/AltitudeError/BlowerDuty/ValveState，四囊同步无左右之分。
+        // ballast FactGroup 为 PX4 十五字段契约（03_interfaces.md §5）：
+        // buoy/alt_err/b_mass/blower0~3/valve0~3/bal_p0~3，四囊独立执行器。
         // 每页单列只取 3 个核心，其余浮力字段仍在左下浮力 HUD 完整展示。
         {
-            {"ballast", "NetBuoyancy", nullptr, nullptr},
-            {"ballast", "BallastMass", nullptr, nullptr},
-            {"Vehicle", "Roll", nullptr, nullptr},
+            {"ballast", "NetBuoyancy", nullptr, u8"净浮力"},
+            {"ballast", "BallastMass", nullptr, u8"囊质量"},
+            {"Vehicle", "Roll", nullptr, u8"横滚"},
         },
         // Page 2: energy / mission
         {
-            {"Vehicle", "AltitudeAMSL", "arrow-thick-up.svg", nullptr},
-            {"Vehicle", "ThrottlePct", nullptr, "Thr"},
-            {"Vehicle", "AirSpeed", nullptr, "AirSpd"},
+            {"Vehicle", "AltitudeAMSL", "arrow-thick-up.svg", u8"海拔高度"},
+            {"Vehicle", "ThrottlePct", nullptr, u8"油门%"},
+            {"Vehicle", "AirSpeed", nullptr, u8"空速"},
         },
     };
 
@@ -362,12 +364,13 @@ void QGCCorePlugin::_createAirshipPagedDefaultSettings(FactValueGrid *factValueG
     for (int r = 0; r < rowCount; r++) {
         const AirshipIVD &ivd = kPages[pageIndex][r];
         InstrumentValueData *value = column->value<InstrumentValueData *>(r);
-        value->setFact(QString::fromLatin1(ivd.group), QString::fromLatin1(ivd.factName));
+        // Chinese labels are UTF-8 literals; fromLatin1 would garble them.
+        value->setFact(QString::fromUtf8(ivd.group), QString::fromUtf8(ivd.factName));
         if (ivd.icon) {
-            value->setIcon(QString::fromLatin1(ivd.icon));
+            value->setIcon(QString::fromUtf8(ivd.icon));
         }
         if (ivd.text) {
-            value->setText(QString::fromLatin1(ivd.text));
+            value->setText(QString::fromUtf8(ivd.text));
         } else if (value->fact()) {
             value->setText(value->fact()->shortDescription());
         }
@@ -394,7 +397,9 @@ void QGCCorePlugin::_migrateAirshipPagedTelemetrySettings(void)
     //     ClimbRate cell on the flight-core page, are discarded).
     // V8: increase value font size to LargeFontSize; clear fontSize/rowHeight
     //     persisted by earlier builds so the new size takes effect.
-    static const QLatin1String kMigrationKey("AirshipPagedDefaultsV8");
+    // V9: default cell labels switched to Chinese (相对高度/净浮力/...); clear
+    //     layouts saved with English labels so the new defaults apply.
+    static const QLatin1String kMigrationKey("AirshipPagedDefaultsV9");
     if (settings.value(kMigrationKey, false).toBool()) {
         return;
     }
