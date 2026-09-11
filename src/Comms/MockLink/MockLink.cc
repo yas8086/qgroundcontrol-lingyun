@@ -638,8 +638,8 @@ void MockLink::_sendNamedValueFloats()
     );
     respondWithMavlinkMessage(msg);
 
-    // 飞艇专用：补发 AirshipBallastFactGroup 期望的 5 个 NAMED_VALUE_FLOAT
-    // (buoy/alt_err/b_mass/blower/valve，03_interfaces.md §5)，
+    // 飞艇专用：补发 AirshipBallastFactGroup 期望的 15 个 NAMED_VALUE_FLOAT
+    // (buoy/alt_err/b_mass/blower0~3/valve0~3/bal_p0~3，03_interfaces.md §5)，
     // 让飞艇 MockLink 下浮力数据可在 GUI 端到端验证
     if (_vehicleType == MAV_TYPE_AIRSHIP) {
         _sendAirshipBallastNamedValueFloats();
@@ -648,8 +648,9 @@ void MockLink::_sendNamedValueFloats()
 
 void MockLink::_sendAirshipBallastNamedValueFloats()
 {
-    // 飞艇专用：发送 PX4 ballast_control 五字段轮转契约（03_interfaces.md §5）。
-    // 四囊同步构型：b_mass 为单囊质量，blower 为 0-255 占空比，valve 为 0/255。
+    // 飞艇专用：发送 PX4 ballast_control 十五字段轮转契约（03_interfaces.md §5 + 四囊压差/风机/阀门透出）。
+    // 四囊独立执行器构型：每囊 1 风机（blower0~3，占空比 0-100）+ 1 阀门（valve0~3，0=关/100=开）；
+    // b_mass 为单囊质量，bal_p0~p3 为四囊实测表压（kPa，0~5 正常区间，>4.75 接近超压限）。
     // 数值采用时变模式，方便 GUI 肉眼观察数据更新。
     const uint32_t timeBootMs = static_cast<uint32_t>(_runningTime.elapsed());
     const double t = static_cast<double>(timeBootMs) / 1000.0;
@@ -657,42 +658,68 @@ void MockLink::_sendAirshipBallastNamedValueFloats()
     const float buoy    = static_cast<float>(5.0 + 5.0 * std::sin(t));          // 净浮力 N：0~10
     const float alt_err = static_cast<float>(5.0 * std::sin(t / 2.0));         // 高度误差 m：±5
     const float b_mass  = static_cast<float>(64.0 + 32.0 * std::sin(t / 4.0)); // 单囊质量 kg：32~96
-    const float blower  = static_cast<float>(127.5 + 127.5 * std::cos(t));     // 风机占空比：0~255
-    const float valve   = static_cast<float>(255 * ((timeBootMs / 2000) % 2)); // 阀门 0/255 开关
+    // 四路风机占空比 %：相位错开的正弦波动（0~100）
+    const float blower0 = static_cast<float>(50.0 + 50.0 * std::sin(t / 3.0));       // 左副囊风机
+    const float blower1 = static_cast<float>(50.0 + 50.0 * std::sin(t / 3.0 + 1.0)); // 左主囊风机
+    const float blower2 = static_cast<float>(50.0 + 50.0 * std::sin(t / 3.0 + 2.0)); // 右主囊风机
+    const float blower3 = static_cast<float>(50.0 + 50.0 * std::sin(t / 3.0 + 3.0)); // 右副囊风机
+    // 四路阀门 0/100 开关：3 秒周期、0.75s 步进错相切换（肉眼可分辨各囊独立开关）
+    const float valve0  = static_cast<float>(100 * ((timeBootMs / 3000) % 2));          // 左副囊阀门
+    const float valve1  = static_cast<float>(100 * (((timeBootMs + 750) / 3000) % 2));  // 左主囊阀门
+    const float valve2  = static_cast<float>(100 * (((timeBootMs + 1500) / 3000) % 2)); // 右主囊阀门
+    const float valve3  = static_cast<float>(100 * (((timeBootMs + 2250) / 3000) % 2)); // 右副囊阀门
+    // 四囊压差 kPa：缓慢充压趋势 + 囊间小差异（<0.5kPa 不触发不平衡告警）
+    const float bal_p0  = static_cast<float>(1.2 + 0.15 * std::sin(t / 7.0));
+    const float bal_p1  = static_cast<float>(1.2 + 0.15 * std::sin(t / 7.0 + 1.57));
+    const float bal_p2  = static_cast<float>(1.2 + 0.15 * std::sin(t / 7.0 + 3.14));
+    const float bal_p3  = static_cast<float>(1.2 + 0.15 * std::sin(t / 7.0 + 4.71));
 
     // NAMED_VALUE_FLOAT.name is a fixed 10-byte field; pack_chan memcpys 10 bytes unconditionally.
     static constexpr char kBuoyName[10]    = "buoy";
     static constexpr char kAltErrName[10]  = "alt_err";
     static constexpr char kBMassName[10]   = "b_mass";
-    static constexpr char kBlowerName[10]  = "blower";
-    static constexpr char kValveName[10]   = "valve";
+    static constexpr char kBlower0Name[10] = "blower0";
+    static constexpr char kBlower1Name[10] = "blower1";
+    static constexpr char kBlower2Name[10] = "blower2";
+    static constexpr char kBlower3Name[10] = "blower3";
+    static constexpr char kValve0Name[10]  = "valve0";
+    static constexpr char kValve1Name[10]  = "valve1";
+    static constexpr char kValve2Name[10]  = "valve2";
+    static constexpr char kValve3Name[10]  = "valve3";
+    static constexpr char kBalP0Name[10]   = "bal_p0";
+    static constexpr char kBalP1Name[10]   = "bal_p1";
+    static constexpr char kBalP2Name[10]   = "bal_p2";
+    static constexpr char kBalP3Name[10]   = "bal_p3";
 
     mavlink_message_t msg{};
-    (void) mavlink_msg_named_value_float_pack_chan(
-        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel,
-        &msg, timeBootMs, kBuoyName, buoy
-    );
-    respondWithMavlinkMessage(msg);
-    (void) mavlink_msg_named_value_float_pack_chan(
-        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel,
-        &msg, timeBootMs, kAltErrName, alt_err
-    );
-    respondWithMavlinkMessage(msg);
-    (void) mavlink_msg_named_value_float_pack_chan(
-        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel,
-        &msg, timeBootMs, kBMassName, b_mass
-    );
-    respondWithMavlinkMessage(msg);
-    (void) mavlink_msg_named_value_float_pack_chan(
-        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel,
-        &msg, timeBootMs, kBlowerName, blower
-    );
-    respondWithMavlinkMessage(msg);
-    (void) mavlink_msg_named_value_float_pack_chan(
-        _vehicleSystemId, _vehicleComponentId, _outgoingMavlinkChannel,
-        &msg, timeBootMs, kValveName, valve
-    );
-    respondWithMavlinkMessage(msg);
+    const auto sendNamedFloat = [this, timeBootMs, &msg](const char (&name)[10], float value) {
+        (void) mavlink_msg_named_value_float_pack_chan(
+            _vehicleSystemId,
+            _vehicleComponentId,
+            _outgoingMavlinkChannel,
+            &msg,
+            timeBootMs,
+            name,
+            value
+        );
+        respondWithMavlinkMessage(msg);
+    };
+
+    sendNamedFloat(kBuoyName, buoy);
+    sendNamedFloat(kAltErrName, alt_err);
+    sendNamedFloat(kBMassName, b_mass);
+    sendNamedFloat(kBlower0Name, blower0);
+    sendNamedFloat(kBlower1Name, blower1);
+    sendNamedFloat(kBlower2Name, blower2);
+    sendNamedFloat(kBlower3Name, blower3);
+    sendNamedFloat(kValve0Name, valve0);
+    sendNamedFloat(kValve1Name, valve1);
+    sendNamedFloat(kValve2Name, valve2);
+    sendNamedFloat(kValve3Name, valve3);
+    sendNamedFloat(kBalP0Name, bal_p0);
+    sendNamedFloat(kBalP1Name, bal_p1);
+    sendNamedFloat(kBalP2Name, bal_p2);
+    sendNamedFloat(kBalP3Name, bal_p3);
 }
 
 void MockLink::_sendVibration()

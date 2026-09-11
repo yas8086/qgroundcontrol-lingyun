@@ -29,20 +29,108 @@
     "max":              128.5
 },
 {
-    "name":             "blowerDuty",
-    "shortDesc":        "Blower Duty",
+    "name":             "blower0",
+    "shortDesc":        "Blower 0 Duty",
     "type":             "double",
     "decimalPlaces":    0,
+    "units":            "%",
     "min":              0,
-    "max":              255
+    "max":              100
 },
 {
-    "name":             "valveState",
-    "shortDesc":        "Valve State",
+    "name":             "blower1",
+    "shortDesc":        "Blower 1 Duty",
+    "type":             "double",
+    "decimalPlaces":    0,
+    "units":            "%",
+    "min":              0,
+    "max":              100
+},
+{
+    "name":             "blower2",
+    "shortDesc":        "Blower 2 Duty",
+    "type":             "double",
+    "decimalPlaces":    0,
+    "units":            "%",
+    "min":              0,
+    "max":              100
+},
+{
+    "name":             "blower3",
+    "shortDesc":        "Blower 3 Duty",
+    "type":             "double",
+    "decimalPlaces":    0,
+    "units":            "%",
+    "min":              0,
+    "max":              100
+},
+{
+    "name":             "valve0",
+    "shortDesc":        "Valve 0 State",
     "type":             "double",
     "decimalPlaces":    0,
     "min":              0,
-    "max":              255
+    "max":              100
+},
+{
+    "name":             "valve1",
+    "shortDesc":        "Valve 1 State",
+    "type":             "double",
+    "decimalPlaces":    0,
+    "min":              0,
+    "max":              100
+},
+{
+    "name":             "valve2",
+    "shortDesc":        "Valve 2 State",
+    "type":             "double",
+    "decimalPlaces":    0,
+    "min":              0,
+    "max":              100
+},
+{
+    "name":             "valve3",
+    "shortDesc":        "Valve 3 State",
+    "type":             "double",
+    "decimalPlaces":    0,
+    "min":              0,
+    "max":              100
+},
+{
+    "name":             "bladderPressure0",
+    "shortDesc":        "Left Auxiliary Bladder Pressure",
+    "type":             "double",
+    "decimalPlaces":    2,
+    "units":            "kPa",
+    "min":              -0.1,
+    "max":              5.0
+},
+{
+    "name":             "bladderPressure1",
+    "shortDesc":        "Left Main Bladder Pressure",
+    "type":             "double",
+    "decimalPlaces":    2,
+    "units":            "kPa",
+    "min":              -0.1,
+    "max":              5.0
+},
+{
+    "name":             "bladderPressure2",
+    "shortDesc":        "Right Main Bladder Pressure",
+    "type":             "double",
+    "decimalPlaces":    2,
+    "units":            "kPa",
+    "min":              -0.1,
+    "max":              5.0
+},
+{
+    "name":             "bladderPressure3",
+    "shortDesc":        "Right Auxiliary Bladder Pressure",
+    "type":             "double",
+    "decimalPlaces":    2,
+    "units":            "kPa",
+    "min":              -0.1,
+    "max":              5.0
 }
 ]
 }

@@ -1679,6 +1679,15 @@ void Vehicle::_parametersReady(bool parametersReady)
     if (parametersReady) {
         disconnect(_parameterManager, &ParameterManager::parametersReadyChanged, this, &Vehicle::_parametersReady);
         _setupAutoDisarmSignalling();
+
+        // 灵云01: 固件USB链路固化为USB_MAV_MODE=0(Normal)后, NAMED_VALUE_FLOAT不在默认流表,
+        // 浮力面板数据依赖此流, 必须显式请求2Hz, 否则数据冻结
+        // (见PX4文档 05_hardware 1.1 / 03_interfaces 第5节)。
+        // 目标契约为15字段轮转(buoy/alt_err/b_mass/bal_p0-3/blower0-3/valve0-3),
+        // 当前固件实发9字段, FactGroup以NaN显示缺失字段。
+        if (_ballastFactGroup) {
+            _setMessageInterval(MAVLINK_MSG_ID_NAMED_VALUE_FLOAT, 500000);  // 2 Hz (interval in usecs)
+        }
     }
 
     _multirotor_speed_limits_available = _firmwarePlugin->mulirotorSpeedLimitsAvailable(this);
