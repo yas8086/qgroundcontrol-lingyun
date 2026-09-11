@@ -15,6 +15,26 @@ import QGroundControl.Logging
 Item {
     id: _root
 
+    // 灵云01: 起飞前高度自查用的参数访问器(AS_TAKEOFF_ALT)
+    FactPanelController { id: airshipCtrl }
+
+    readonly property bool _airshipTakeoffCheckApplicable: _activeVehicle && _activeVehicle.airship
+
+    // 起飞前高度自查: alt >= AS_TAKEOFF_ALT 时固件静默拒绝TAKEOFF(不发STATUSTEXT), 返回警告文本注入确认框
+    function _airshipTakeoffAltWarning() {
+        if (!_airshipTakeoffCheckApplicable) {
+            return ""
+        }
+        var altMax = airshipCtrl.parameterExists(-1, "AS_TAKEOFF_ALT") ? airshipCtrl.getParameterFact(-1, "AS_TAKEOFF_ALT").rawValue : NaN
+        var curAlt = _activeVehicle.altitudeRelative.rawValue
+        if (!isNaN(altMax) && !isNaN(curAlt) && curAlt >= altMax) {
+            // 单位转换到与起飞滑块一致, 便于用户理解
+            var altMaxFmt = _unitsConversion.metersToAppSettingsVerticalDistanceUnits(altMax).toFixed(0)
+            return " " + qsTr("(Warning: current altitude is at/above the %1 takeoff altitude limit — takeoff may be rejected.)").arg(altMaxFmt)
+        }
+        return ""
+    }
+
     property var missionController
     property var confirmDialog
     property var guidedValueSlider
@@ -425,7 +445,9 @@ Item {
             break;
         case actionTakeoff:
             confirmDialog.title = takeoffTitle
-            confirmDialog.message = takeoffMessage
+            // 灵云01: 当前高度 >= AS_TAKEOFF_ALT(20m默认)时固件静默拒绝TAKEOFF(仅console日志无STATUSTEXT),
+            // 发起前在确认框中警告用户(见PX4文档06_qgc_dev_guide 1.3.2)
+            confirmDialog.message = takeoffMessage + _airshipTakeoffAltWarning()
             confirmDialog.hideTrigger = Qt.binding(function() { return !showTakeoff })
             guidedValueSlider.visible = _activeVehicle.supports.guidedTakeoffWithAltitude
             break;
