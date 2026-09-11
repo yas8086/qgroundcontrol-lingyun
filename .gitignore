@@ -21,6 +21,9 @@
 # Large third-party reference PDFs (local only)
 docs/lingyun/参考/
 
+# Hardware datasheets and photos (19MB binaries, local only)
+docs/lingyun/设备/
+
 # VS Code - track .default files, ignore personal overrides
 .vscode/*
 !.vscode/extensions.json
