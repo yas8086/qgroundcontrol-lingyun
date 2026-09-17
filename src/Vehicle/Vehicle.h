@@ -742,6 +742,7 @@ public slots:
 signals:
     void coordinateChanged              (QGeoCoordinate coordinate);
     void mavlinkMessageReceived         (const mavlink_message_t& message);
+    void actuatorsMetadataChanged       ();
     void homePositionChanged            (const QGeoCoordinate& homePosition);
     void armedPositionChanged();
     void armedChanged                   (bool armed);

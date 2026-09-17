@@ -104,6 +104,7 @@ private:
     QSet<Fact*> _subscribedFacts{};
     QJsonDocument _jsonMetadata;
     bool _init{false};
+    bool _initRequested{false}; ///< true once init() was called; used to defer init until metadata arrives
     QString _initError;
     Condition _showUi;
     QmlObjectListModel* _actuatorOutputs = new QmlObjectListModel(this); ///< list of ActuatorOutputs::ActuatorOutput*

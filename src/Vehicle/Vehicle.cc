@@ -1275,6 +1275,10 @@ void Vehicle::setActuatorsMetadata([[maybe_unused]] uint8_t compid,
         _actuators = new Actuators(this, this);
     }
     _actuators->load(metadataJsonFileName);
+    // Notify listeners (e.g. the autopilot plugin's component list) that actuators
+    // metadata arrived. On slow links this can happen after parameters are ready,
+    // when the plugin already fell back to the legacy Motor page.
+    emit actuatorsMetadataChanged();
 }
 
 void Vehicle::_handleHeartbeat(mavlink_message_t& message)

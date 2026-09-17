@@ -134,6 +134,12 @@ void Actuators::load(const QString &json_file)
         qCWarning(ActuatorsLog) << _initError;
         return;
     }
+
+    // Deferred init: if init() ran before the metadata arrived, run it now.
+    if (_initRequested && !_init) {
+        qCDebug(ActuatorsLog) << "Running deferred init after metadata load";
+        init();
+    }
 }
 
 void Actuators::init()
@@ -142,8 +148,17 @@ void Actuators::init()
         return;
     }
 
+    _initRequested = true;
+
     if (!_vehicle->parameterManager()->parametersReady()) {
         qWarning() << "Incorrect calling order, parameters not yet ready";
+    }
+
+    if (_jsonMetadata.isNull()) {
+        // Metadata not loaded yet (e.g. component information still downloading on a
+        // slow link). Defer instead of failing: load() re-runs init() once data arrives.
+        qCDebug(ActuatorsLog) << "Metadata not yet loaded, deferring init";
+        return;
     }
 
     if (!parseJson(_jsonMetadata)) {

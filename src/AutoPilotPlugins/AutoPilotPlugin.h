@@ -53,6 +53,10 @@ public:
     /// Returns true if the vehicle component is available for the vehicle. Customs build have different components.
     Q_INVOKABLE bool knownVehicleComponentAvailable(KnownVehicleComponent knownVehicleComponent) { return (findKnownVehicleComponent(knownVehicleComponent) != nullptr); }
 
+    /// Registers a component added after parametersReadyPreChecks (e.g. a dynamic component swap).
+    /// Hooks its setupCompleteChanged to the recalculation and refreshes the cached value.
+    void registerDynamicComponent(VehicleComponent* component);
+
     /// Returns the VehicleComponent for the knownVehicleComponent. Returns nullptr if not available.
     Q_INVOKABLE VehicleComponent *findKnownVehicleComponent(KnownVehicleComponent knownVehicleComponent);
 

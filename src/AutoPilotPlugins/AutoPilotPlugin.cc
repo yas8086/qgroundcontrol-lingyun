@@ -80,3 +80,9 @@ VehicleComponent *AutoPilotPlugin::findKnownVehicleComponent(KnownVehicleCompone
 
     return nullptr;
 }
+
+void AutoPilotPlugin::registerDynamicComponent(VehicleComponent* component)
+{
+    (void) connect(component, &VehicleComponent::setupCompleteChanged, this, &AutoPilotPlugin::_recalcSetupComplete);
+    _recalcSetupComplete();
+}

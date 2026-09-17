@@ -50,4 +50,9 @@ protected:
 
 private:
     QVariantList            _components;
+
+private slots:
+    /// Replaces the legacy Motor page with the Actuators page once actuators
+    /// metadata arrives after the component list was already built (slow link race).
+    void _upgradeToActuatorsPage();
 };

@@ -105,6 +105,13 @@ const QVariantList& PX4AutoPilotPlugin::vehicleComponents(void)
                     _components.append(QVariant::fromValue(static_cast<VehicleComponent*>(_actuatorComponent)));
                 } else {
                     qCDebug(PX4AutoPilotPluginLog) << "  → Using legacy Motor page instead";
+                    if (!_vehicle->actuators()) {
+                        // Slow link race: parameters are ready but actuators component information
+                        // has not arrived yet. Watch for it and upgrade the Motor page in place.
+                        (void) connect(_vehicle, &Vehicle::actuatorsMetadataChanged,
+                                      this, &PX4AutoPilotPlugin::_upgradeToActuatorsPage, Qt::UniqueConnection);
+                        qCDebug(PX4AutoPilotPluginLog) << "  → Watching for late actuators metadata to upgrade the page";
+                    }
                     _motorComponent = new MotorComponent(_vehicle, this, this);
                     _motorComponent->setupTriggerSignals();
                     _components.append(QVariant::fromValue(static_cast<VehicleComponent*>(_motorComponent)));
@@ -204,4 +211,43 @@ QString PX4AutoPilotPlugin::prerequisiteSetup(VehicleComponent* component) const
     }
 
     return QString();
+}
+
+void PX4AutoPilotPlugin::_upgradeToActuatorsPage()
+{
+    if (_actuatorComponent || !_motorComponent || !_vehicle->actuators()) {
+        return;
+    }
+
+    // Parameters are ready (the component list was already built); run the
+    // deferred init on the late metadata.
+    _vehicle->actuators()->init();
+
+    if (!_vehicle->actuators()->showUi()) {
+        // Metadata arrived but the UI conditions are not met; keep the Motor page.
+        return;
+    }
+
+    qCDebug(PX4AutoPilotPluginLog) << "Upgrading legacy Motor page to Actuators page after late metadata";
+
+    ActuatorComponent* actuatorComponent = new ActuatorComponent(_vehicle, this, this);
+    actuatorComponent->setupTriggerSignals();
+
+    for (int i = 0; i < _components.count(); i++) {
+        VehicleComponent* const component = qvariant_cast<VehicleComponent*>(_components[i]);
+        if (component == _motorComponent) {
+            _components[i] = QVariant::fromValue(static_cast<VehicleComponent*>(actuatorComponent));
+            break;
+        }
+    }
+    _actuatorComponent = actuatorComponent;
+
+    // Refresh the cached setupComplete with the new component in place
+    registerDynamicComponent(actuatorComponent);
+
+    // Let QML re-read the component list before the old page object goes away
+    emit vehicleComponentsChanged();
+
+    _motorComponent->deleteLater();
+    _motorComponent = nullptr;
 }
