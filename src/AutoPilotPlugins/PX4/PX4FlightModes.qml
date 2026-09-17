@@ -18,6 +18,19 @@ SetupPage {
 
             property string sectionNameFilter: ""
 
+            // Translation anchors for section names: sectionNameFilter carries the raw
+            // section names from FlightModesComponent::sections() (C++ tr() context),
+            // which can differ from the qsTr() translations in this file. Keep these
+            // literal qsTr() calls for lupdate extraction and match both forms.
+            readonly property var _sectionTranslations: ({
+                "Flight Modes":     qsTr("Flight Modes"),
+                "Switch Settings":  qsTr("Switch Settings")
+            })
+
+            function sectionNameMatches(name, enName) {
+                return name === enName || name === _sectionTranslations[enName]
+            }
+
             property real _margins:         ScreenTools.defaultFontPixelHeight / 2
             property var  _switchNameList:  [ "RC_MAP_ARM_SW", "RC_MAP_GEAR_SW", "RC_MAP_KILL_SW", "RC_MAP_LOITER_SW", "RC_MAP_OFFB_SW", "RC_MAP_RETURN_SW" ]
             property var  _switchTHList:    [ "RC_ARMSWITCH_TH", "RC_GEAR_TH", "RC_KILLSWITCH_TH", "RC_LOITER_TH", "RC_OFFB_TH", "RC_RETURN_TH" ]
@@ -57,7 +70,7 @@ SetupPage {
                         Column {
                             id:      flightModeSettingsColumn
                             spacing: _margins
-                            visible: sectionNameFilter === "" || sectionNameFilter === qsTr("Flight Modes")
+                            visible: sectionNameFilter === "" || sectionNameMatches(sectionNameFilter, "Flight Modes")
 
                             QGCLabel {
                                 id:             flightModeLabel
@@ -120,7 +133,7 @@ SetupPage {
                         Column {
                             id:         column2
                             spacing:    _margins
-                            visible:    sectionNameFilter === "" || sectionNameFilter === qsTr("Switch Settings")
+                            visible:    sectionNameFilter === "" || sectionNameMatches(sectionNameFilter, "Switch Settings")
 
                             QGCLabel {
                                 text:           qsTr("Switch Settings")
